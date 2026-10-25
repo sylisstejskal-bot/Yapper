@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Check that the walk and sprint cycle is wired into the player, then simulate it."""
+"""Check walk, sprint-stop, blink, and glance wiring, then simulate it."""
 
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 
@@ -24,8 +25,22 @@ def live_speed(modified: float, delta: float, gated: bool) -> float:
     return clamp(max(modified, (delta - 0.004) * 20.0), 0.0, 1.0)
 
 
-def sprint_blend(smoothed: float, sprinting: bool) -> float:
-    return clamp(smoothed + (1.0 if sprinting else 0.0), 0.0, 1.0)
+def phase(distance: float) -> float:
+    return distance * 38.17
+
+
+def next_sprint(smoothed: float, sprinting: bool, live: float) -> float:
+    if sprinting and live > 0.12:
+        return lerp(smoothed, 1.0, 0.5)
+    if live < 0.02:
+        return 0.0
+    return lerp(smoothed, 0.0, 0.7)
+
+
+def next_amp(amp: float, live: float) -> float:
+    if live < 0.02:
+        return lerp(amp, 0.0, 0.7)
+    return lerp(amp, live, 0.45)
 
 
 def pose(cos: float, blend: float, amp: float, *, rise: float = 0.0, fall: float = 0.0, land: float = 0.0) -> tuple[float, float, float, float]:
@@ -35,6 +50,11 @@ def pose(cos: float, blend: float, amp: float, *, rise: float = 0.0, fall: float
     left_arm = cos * lerp(34.0, 56.0, blend) * amp * fade + rise * -42.0 + fall * -14.0 + land * -4.0
     right_arm = cos * lerp(-34.0, -56.0, blend) * amp * fade + rise * -34.0 + fall * -10.0 + land * -3.0
     return left_leg, right_leg, left_arm, right_arm
+
+
+def blink_amount(progress: float) -> float:
+    """Molang math.sin takes degrees. The curve starts and ends open."""
+    return math.sin(math.radians(clamp(progress, 0.0, 1.0) * 180.0))
 
 
 def expect(condition: bool, message: str) -> None:
@@ -49,23 +69,37 @@ def balanced(text: str) -> bool:
 def check_files() -> None:
     entity = json.loads((ROOT / "resource_pack/entity/player.entity.json").read_text())
     animations = json.loads((ROOT / "resource_pack/animations/realistic_player.animation.json").read_text())
+    eyes = json.loads((ROOT / "resource_pack/models/entity/realistic_eyes.geo.json").read_text())
+    controller = json.loads((ROOT / "resource_pack/animation_controllers/realistic_player.animation_controllers.json").read_text())
     description = entity["minecraft:client_entity"]["description"]
     scripts = description["scripts"]
-    expect(scripts["animate"] == ["root", "realistic_motion"], "root must play before the extra controller")
+    expect(scripts["animate"] == ["root", "realistic_motion", "realistic_face"], "face animation must play beside root, not inside it")
     names = description["animations"]
     expect(names["root"] == "controller.animation.player.root", "vanilla root controller is not registered")
     expect(names["move.legs"] == "animation.player.move.legs", "move.legs is not hooked to the override")
     expect(names["move.arms"] == "animation.player.move.arms", "move.arms is not hooked to the override")
+    expect(names["realistic_face"] == "animation.realistic.player.face", "face animation is not registered")
     pre = scripts["pre_animation"]
     expect(all(balanced(line) for line in pre), "a pre_animation expression has unbalanced parentheses")
     joined = "\n".join(pre)
     expect(joined.find("variable.gliding_speed_value =") < joined.find("variable.tcos0"), "tcos0 still divides by an unset speed")
+    expect("query.is_sprinting" in joined and "variable.rm_next_blink" in joined, "sprint and blink timers must be driven before the animations")
     legs = json.dumps(animations["animations"]["animation.player.move.legs"])
     arms = json.dumps(animations["animations"]["animation.player.move.arms"])
-    for token in ("query.modified_distance_moved", "query.position_delta", "query.is_sprinting", "math.cos"):
+    for token in ("query.modified_distance_moved * 38.17", "query.position_delta", "math.cos", "variable.rm_sprint"):
         expect(token in legs and token in arms, f"limb animation is missing {token}")
-    expect("variable.rm_leg_l" not in legs, "legs still read the old zeroed variable")
+    expect("math.lerp(38.17, 52.0" not in legs, "sprint still rescales the stride phase")
+    expect("query.is_sprinting" not in legs and "query.is_sprinting" not in arms, "limbs must not restart a sprint cycle from the sprint flag")
+    expect("variable.rm_look" not in legs and "variable.rm_blink" not in legs, "eyes must not change the walk")
     expect(balanced(legs) and balanced(arms), "limb Molang has unbalanced parentheses")
+    face = animations["animations"]["animation.realistic.player.face"]
+    expect("left_eyelid" in face["bones"] and "right_eyelid" in face["bones"] and "eye_look" in face["bones"], "face animation is missing an eye bone")
+    expect("scale" in face["bones"]["left_eyelid"] and "position" in face["bones"]["eye_look"], "blink and glance use the wrong channels")
+    motion = controller["animation_controllers"]["controller.animation.realistic.player.motion"]
+    expect("realistic_face" not in json.dumps(motion), "the movement controller must not own blinking")
+    bones = {bone["name"]: bone for bone in eyes["minecraft:geometry"][0]["bones"]}
+    expect(bones["left_eyelid"]["parent"] == "head" and bones["right_eyelid"]["parent"] == "head", "eyelids must follow the head")
+    expect(bones["eye_look"]["parent"] == "head", "pupils must follow the head")
     for animation in animations["animations"].values():
         for bone, channels in animation.get("bones", {}).items():
             if bone.lower() in {"root", "waist", "body"} and "position" in channels:
@@ -77,33 +111,59 @@ def main() -> None:
     expect(live_speed(0.0, 0.0, False) == 0.0, "standing must not count as movement")
     expect(live_speed(0.0, 0.1, False) == 1.0, "horizontal movement must drive the cycle even if modified_move_speed is 0")
     expect(live_speed(1.0, 0.0, True) == 0.0, "swim, crawl, and riding must not use this stride")
+    expect(phase(100.0) == phase(100.0), "a frozen stride keeps its phase")
+    old_scrub = 100.0 * lerp(38.17, 52.0, 0.82)
+    expect(abs(old_scrub - phase(100.0)) > 200.0, "the removed phase lerp was large enough to replay a step")
 
     amp = 0.0
     for _ in range(8):
         speed = live_speed(0.0, 0.1, False)
-        amp = lerp(amp, speed, 0.45 if speed > amp else 0.12)
-    walk = pose(1.0, sprint_blend(0.0, False), max(amp, live_speed(0.0, 0.1, False)))
-    sprint = pose(1.0, sprint_blend(0.0, True), max(amp, live_speed(0.0, 0.12, False)))
-    opposite = pose(-1.0, sprint_blend(0.0, False), 1.0)
+        amp = next_amp(amp, speed)
+    walk = pose(1.0, 0.0, max(amp, live_speed(0.0, 0.1, False)))
+    sprint = pose(1.0, 1.0, max(amp, live_speed(0.0, 0.12, False)))
+    opposite = pose(-1.0, 0.0, 1.0)
     expect(walk[0] < -30.0 and walk[1] > 30.0, "a forward step must split the legs")
     expect(walk[0] * walk[2] < 0.0 and walk[1] * walk[3] < 0.0, "each arm must oppose its leg")
     expect(opposite[0] > 30.0 and opposite[1] < -30.0, "the next half-step must swap the legs")
     expect(abs(sprint[0]) > abs(walk[0]) + 15.0, "sprinting must swing farther than walking")
     expect(abs(sprint[2]) > abs(walk[2]) + 10.0, "sprinting must swing the arms harder")
 
+    blend = 1.0
+    moving = live_speed(0.0, 0.1, False)
+    for _ in range(4):
+        blend = next_sprint(blend, False, moving)
+    released = pose(1.0, blend, 1.0)
+    expect(abs(walk[0]) < abs(released[0]) < abs(sprint[0]), "releasing sprint while moving eases the swing toward a walk")
+    expect(phase(100.0) == 100.0 * 38.17, "releasing sprint must not change the stride phase")
+
+    blend = 1.0
     amp = 1.0
-    for _ in range(24):
-        amp = lerp(amp, 0.0, 0.12)
-    rested = pose(1.0, 0.0, amp)
-    expect(abs(rested[0]) < 3.0 and abs(rested[1]) < 3.0, "stopping must ease the stride back to rest")
+    stopped = live_speed(0.0, 0.0, False)
+    blend = next_sprint(blend, False, stopped)
+    expect(blend == 0.0, "a full stop clears the sprint blend immediately")
+    for _ in range(6):
+        amp = next_amp(amp, stopped)
+    rested = pose(1.0, blend, amp)
+    expect(abs(rested[0]) < 1.0 and abs(rested[1]) < 1.0, "stopping must ease the stride back to idle")
 
     airborne = pose(1.0, 0.0, 1.0, rise=1.0)
     falling = pose(1.0, 0.0, 1.0, fall=1.0)
     expect(airborne[0] < -20.0 and falling[0] > 8.0, "rising and falling stay distinct from the walk")
-    print("walk and sprint wiring ok")
+    expect(abs(blink_amount(0.0)) < 1e-9 and abs(blink_amount(1.0)) < 1e-9, "each blink must open again")
+    expect(abs(blink_amount(0.5) - 1.0) < 1e-9, "the middle of a blink closes the lid")
+    expect(pose(1.0, 0.0, 1.0) == pose(1.0, 0.0, 1.0), "a glance must not move the legs")
+    look = 0.0
+    for _ in range(40):
+        look = lerp(look, 0.32, 0.06)
+    expect(0.2 < look < 0.32, "an idle glance eases toward its target")
+    for _ in range(40):
+        look = lerp(look, 0.0, 0.06)
+    expect(abs(look) < 0.05, "moving returns the eyes forward")
+    print("walk, sprint-stop, and eye wiring ok")
     print(f"walk=({walk[0]:.1f},{walk[1]:.1f}) arms=({walk[2]:.1f},{walk[3]:.1f})")
     print(f"sprint=({sprint[0]:.1f},{sprint[1]:.1f}) arms=({sprint[2]:.1f},{sprint[3]:.1f})")
-    print(f"rest=({rested[0]:.2f},{rested[1]:.2f}) rise={airborne[0]:.1f} fall={falling[0]:.1f}")
+    print(f"release=({released[0]:.1f},{released[1]:.1f}) rest=({rested[0]:.2f},{rested[1]:.2f})")
+    print(f"rise={airborne[0]:.1f} fall={falling[0]:.1f} blink_mid={blink_amount(0.5):.2f}")
 
 
 if __name__ == "__main__":

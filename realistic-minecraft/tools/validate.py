@@ -121,8 +121,39 @@ def check_player() -> None:
             fail(f"player pre_animation is missing {token}")
     if pre_animation.find("variable.gliding_speed_value =") > pre_animation.find("variable.tcos0"):
         fail("gliding_speed_value must be set before tcos0 divides by it")
-    if description["scripts"]["animate"] != ["root", "realistic_motion"]:
-        fail("player animate list must stay root, then realistic_motion")
+    if description["scripts"]["animate"] != ["root", "realistic_motion", "realistic_face"]:
+        fail("player animate list must be root, realistic_motion, then realistic_face")
+    if names.get("realistic_face") != "animation.realistic.player.face":
+        fail("face animation is not registered on the player")
+    if "animation.realistic.player.face" not in animations["animations"]:
+        fail("face animation is missing")
+    face = json.dumps(animations["animations"]["animation.realistic.player.face"])
+    for token in ("left_eyelid", "right_eyelid", "eye_look", "variable.rm_blink", "variable.rm_look_x", "math.lerp(0.12, 1.0"):
+        if token not in face:
+            fail(f"face animation is missing {token}")
+    for state in states.values():
+        if "realistic_face" in json.dumps(state.get("animations", [])):
+            fail("blinking must stay outside the movement controller")
+    eyes_geo = load_json(RP / "models" / "entity" / "realistic_eyes.geo.json")
+    if not eyes_geo:
+        return
+    eye_bones = {
+        bone["name"]: bone
+        for bone in eyes_geo["minecraft:geometry"][0]["bones"]
+    }
+    if eyes_geo["minecraft:geometry"][0]["description"]["identifier"] != "geometry.realistic.player.eyes":
+        fail("eye geometry identifier changed")
+    for bone_name in ("head", "left_eyelid", "right_eyelid", "eye_look"):
+        if bone_name not in eye_bones:
+            fail(f"eye geometry is missing {bone_name}")
+    if eye_bones["left_eyelid"].get("parent") != "head" or eye_bones["right_eyelid"].get("parent") != "head":
+        fail("eyelids must be parented to the head bone")
+    if eye_bones["eye_look"].get("parent") != "head":
+        fail("eye glance bone must be parented to the head")
+    if description["geometry"].get("eyes") != "geometry.realistic.player.eyes":
+        fail("player is not rendering the eye geometry")
+    if description["textures"].get("eyes") != "textures/entity/realistic_eyes":
+        fail("player is missing the eye texture")
     grounded = {"root", "waist", "body", "leftleg", "rightleg", "leftarm", "rightarm"}
     for animation_name, animation in animations["animations"].items():
         for bone, channels in animation.get("bones", {}).items():
@@ -136,9 +167,17 @@ def check_player() -> None:
     arms = animations["animations"]["animation.player.move.arms"]["bones"]
     leg_rotation = json.dumps(legs)
     arm_rotation = json.dumps(arms)
-    for token in ("query.modified_distance_moved", "query.position_delta", "query.is_sprinting", "math.cos"):
+    for token in ("query.modified_distance_moved", "query.position_delta", "math.cos", "variable.rm_sprint"):
         if token not in leg_rotation or token not in arm_rotation:
             fail(f"walk cycle is missing {token}")
+    if "query.is_sprinting" not in pre_animation:
+        fail("sprint state is not read from the player")
+    if "math.lerp(38.17, 52.0" in leg_rotation:
+        fail("sprint must not rescale the stride phase when it ends")
+    if "variable.rm_sprint + (query.is_sprinting" in leg_rotation:
+        fail("sprint blend must not stay forced on after sprint ends")
+    if 'query.modified_distance_moved * 38.17' not in leg_rotation:
+        fail("walk and sprint must share one distance phase")
     if "math.lerp(-38.0, -62.0" not in leg_rotation or "math.lerp(38.0, 62.0" not in leg_rotation:
         fail("left and right legs must swing in opposite directions")
     if "math.lerp(34.0, 56.0" not in arm_rotation or "math.lerp(-34.0, -56.0" not in arm_rotation:
@@ -179,7 +218,7 @@ def check_images() -> None:
     for path in (RP / "textures").rglob("*"):
         if path.suffix.lower() not in {".png", ".tga"}:
             continue
-        if "_h.png" in path.name or "particle" in path.parts or "ui" in path.parts or "items" in path.parts:
+        if "_h.png" in path.name or "particle" in path.parts or "ui" in path.parts or "items" in path.parts or "entity" in path.parts:
             continue
         with Image.open(path) as image:
             if image.size != (32, 32):
@@ -188,6 +227,13 @@ def check_images() -> None:
         with Image.open(path) as image:
             if image.size != (32, 32):
                 fail(f"item {path.name} is {image.size}")
+    eyes = RP / "textures" / "entity" / "realistic_eyes.png"
+    if not eyes.exists():
+        fail("missing eye overlay texture")
+    else:
+        with Image.open(eyes) as image:
+            if image.size != (16, 16):
+                fail(f"realistic_eyes.png is {image.size}, expected 16x16")
     for path in (RP / "textures" / "particle").glob("*.png"):
         with Image.open(path) as image:
             if image.size != (16, 16):

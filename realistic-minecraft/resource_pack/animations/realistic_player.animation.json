@@ -6,14 +6,14 @@
       "bones": {
         "leftleg": {
           "rotation": [
-            "(query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? (variable.tcos0 * -1.4) : (math.cos(query.modified_distance_moved * math.lerp(38.17, 52.0, math.clamp(variable.rm_sprint + (query.is_sprinting ? 1.0 : 0.0), 0.0, 1.0))) * math.lerp(-38.0, -62.0, math.clamp(variable.rm_sprint + (query.is_sprinting ? 1.0 : 0.0), 0.0, 1.0)) * math.max(variable.rm_amp, math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0)) * (query.is_sneaking ? 0.5 : 1.0) * (1.0 - math.clamp(variable.rm_rise + variable.rm_fall + variable.rm_land, 0.0, 1.0)) + variable.rm_rise * -28.0 + variable.rm_fall * 12.0 + variable.rm_land * -8.0 + variable.rm_crouch * -7.0)",
+            "(query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? (variable.tcos0 * -1.4) : (math.cos(query.modified_distance_moved * 38.17) * math.lerp(-38.0, -62.0, variable.rm_sprint) * math.max(variable.rm_amp, math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0)) * (query.is_sneaking ? 0.5 : 1.0) * (1.0 - math.clamp(variable.rm_rise + variable.rm_fall + variable.rm_land, 0.0, 1.0)) + variable.rm_rise * -28.0 + variable.rm_fall * 12.0 + variable.rm_land * -8.0 + variable.rm_crouch * -7.0)",
             -0.1,
             -0.1
           ]
         },
         "rightleg": {
           "rotation": [
-            "(query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? (variable.tcos0 * 1.4) : (math.cos(query.modified_distance_moved * math.lerp(38.17, 52.0, math.clamp(variable.rm_sprint + (query.is_sprinting ? 1.0 : 0.0), 0.0, 1.0))) * math.lerp(38.0, 62.0, math.clamp(variable.rm_sprint + (query.is_sprinting ? 1.0 : 0.0), 0.0, 1.0)) * math.max(variable.rm_amp, math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0)) * (query.is_sneaking ? 0.5 : 1.0) * (1.0 - math.clamp(variable.rm_rise + variable.rm_fall + variable.rm_land, 0.0, 1.0)) + variable.rm_rise * 18.0 + variable.rm_fall * -10.0 + variable.rm_land * -6.0 + variable.rm_crouch * -5.0)",
+            "(query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? (variable.tcos0 * 1.4) : (math.cos(query.modified_distance_moved * 38.17) * math.lerp(38.0, 62.0, variable.rm_sprint) * math.max(variable.rm_amp, math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0)) * (query.is_sneaking ? 0.5 : 1.0) * (1.0 - math.clamp(variable.rm_rise + variable.rm_fall + variable.rm_land, 0.0, 1.0)) + variable.rm_rise * 18.0 + variable.rm_fall * -10.0 + variable.rm_land * -6.0 + variable.rm_crouch * -5.0)",
             0.1,
             0.1
           ]
@@ -25,14 +25,14 @@
       "bones": {
         "leftarm": {
           "rotation": [
-            "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? variable.tcos0 : (math.cos(query.modified_distance_moved * math.lerp(38.17, 52.0, math.clamp(variable.rm_sprint + (query.is_sprinting ? 1.0 : 0.0), 0.0, 1.0))) * math.lerp(34.0, 56.0, math.clamp(variable.rm_sprint + (query.is_sprinting ? 1.0 : 0.0), 0.0, 1.0)) * math.max(variable.rm_amp, math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0)) * (query.is_sneaking ? 0.65 : 1.0) * (1.0 - math.clamp(variable.rm_rise + variable.rm_fall + variable.rm_land, 0.0, 1.0)) + variable.rm_rise * -42.0 + variable.rm_fall * -14.0 + variable.rm_land * -4.0 + variable.rm_crouch * 8.0)",
+            "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? variable.tcos0 : (math.cos(query.modified_distance_moved * 38.17) * math.lerp(34.0, 56.0, variable.rm_sprint) * math.max(variable.rm_amp, math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0)) * (query.is_sneaking ? 0.65 : 1.0) * (1.0 - math.clamp(variable.rm_rise + variable.rm_fall + variable.rm_land, 0.0, 1.0)) + variable.rm_rise * -42.0 + variable.rm_fall * -14.0 + variable.rm_land * -4.0 + variable.rm_crouch * 8.0)",
             0.0,
             "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_on_ground || query.is_riding || query.is_gliding || query.is_swimming) ? 0.0 : (variable.rm_fall * -16.0)"
           ]
         },
         "rightarm": {
           "rotation": [
-            "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? (-variable.tcos0) : (math.cos(query.modified_distance_moved * math.lerp(38.17, 52.0, math.clamp(variable.rm_sprint + (query.is_sprinting ? 1.0 : 0.0), 0.0, 1.0))) * math.lerp(-34.0, -56.0, math.clamp(variable.rm_sprint + (query.is_sprinting ? 1.0 : 0.0), 0.0, 1.0)) * math.max(variable.rm_amp, math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0)) * (query.is_sneaking ? 0.65 : 1.0) * (1.0 - math.clamp(variable.rm_rise + variable.rm_fall + variable.rm_land, 0.0, 1.0)) + variable.rm_rise * -34.0 + variable.rm_fall * -10.0 + variable.rm_land * -3.0 + variable.rm_crouch * 6.0)",
+            "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? (-variable.tcos0) : (math.cos(query.modified_distance_moved * 38.17) * math.lerp(-34.0, -56.0, variable.rm_sprint) * math.max(variable.rm_amp, math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0)) * (query.is_sneaking ? 0.65 : 1.0) * (1.0 - math.clamp(variable.rm_rise + variable.rm_fall + variable.rm_land, 0.0, 1.0)) + variable.rm_rise * -34.0 + variable.rm_fall * -10.0 + variable.rm_land * -3.0 + variable.rm_crouch * 6.0)",
             0.0,
             "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_on_ground || query.is_riding || query.is_gliding || query.is_swimming) ? 0.0 : (variable.rm_fall * 16.0)"
           ]
@@ -71,9 +71,9 @@
       "bones": {
         "waist": {
           "rotation": [
-            "math.lerp(-6.0, -16.0, math.clamp(variable.rm_sprint + (query.is_sprinting ? 1.0 : 0.0), 0.0, 1.0))",
+            "math.lerp(-6.0, -16.0, variable.rm_sprint)",
             0.0,
-            "math.sin(query.modified_distance_moved * 38.17) * math.lerp(2.0, 4.5, math.clamp(variable.rm_sprint + (query.is_sprinting ? 1.0 : 0.0), 0.0, 1.0))"
+            "math.sin(query.modified_distance_moved * 38.17) * math.lerp(2.0, 4.5, variable.rm_sprint)"
           ]
         }
       }
@@ -95,6 +95,20 @@
             0.0,
             0.0
           ]
+        }
+      }
+    },
+    "animation.realistic.player.face": {
+      "loop": true,
+      "bones": {
+        "left_eyelid": {
+          "scale": ["1.0", "math.lerp(0.12, 1.0, variable.rm_blink)", "1.0"]
+        },
+        "right_eyelid": {
+          "scale": ["1.0", "math.lerp(0.12, 1.0, variable.rm_blink)", "1.0"]
+        },
+        "eye_look": {
+          "position": ["variable.rm_look_x", "variable.rm_look_y", 0.0]
         }
       }
     },
