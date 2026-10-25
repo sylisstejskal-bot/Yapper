@@ -41,14 +41,13 @@ Cheats can stay off. The effects start with the behavior pack.
 Try these in order:
 
 1. Look at grass, wood, stone, and ore. Textures are 32×32, so edges are clearer than vanilla and the style still matches across blocks.
-2. Tap the perspective button until you see your body. Third person is required; first person does not draw the legs or the face. Stand still and the limbs rest. Walk: the legs alternate and the opposite arm swings with each step. Stop and the swing eases off. Sprint: the steps get quicker because you cover ground faster, the arms swing wider, and the waist leans forward. Let go of sprint and keep walking: the swing shrinks to a walk without an extra fast step. Stop completely and the stride goes straight to idle.
-3. In third person, the eyes are a small overlay on the classic head. They blink on their own during idle, walking, sprinting, jumping, and falling, and the lids open again after each blink. Standing still, the pupils occasionally glance and then look forward again. Walking brings the gaze back to center. First person hides this overlay because the camera is inside the head.
-4. Jump. The arms trail, then lift, and the legs move into a rising pose. Falling is a different pose. Landing eases back to standing without dropping the body into the ground. Blinks keep going through the jump. First person only nudges the hand. Bedrock does not draw your legs there.
-5. Walk off a one-block step. You get no shake.
-6. Drop about four blocks. You get a dust burst and a short camera shake.
-7. Get hit. The view kicks once, lightly.
-8. Stand in a forest, a desert, a cave, and the Nether. One slow particle appears every couple of seconds. Simple graphics skips most of these.
-9. Hearts, hunger, the hotbar, and the experience bar use a darker set of icons.
+2. Tap the perspective button until you see your body. Third person is required; first person does not draw the legs. The face is your skin, with no extra eyes drawn on top. Stand still and the limbs rest. Walk: the legs alternate and the opposite arm swings with each step. Stop and the swing eases off. Sprint: the steps get quicker because you cover ground faster, the arms swing wider, and the waist leans forward. Let go of sprint and keep walking: the swing shrinks to a walk without an extra fast step. Stop completely and the stride goes straight to idle.
+3. Jump. The arms trail, then lift, and the legs move into a rising pose. Falling is a different pose. Landing eases back to standing without dropping the body into the ground. First person only nudges the hand. Bedrock does not draw your legs there.
+4. Walk off a one-block step. You get no shake.
+5. Drop about four blocks. You get a dust burst and a short camera shake.
+6. Get hit. The view kicks once, lightly.
+7. Stand in a forest, a desert, a cave, and the Nether. One slow particle appears every couple of seconds. Simple graphics skips most of these.
+8. Hearts, hunger, the hotbar, and the experience bar use a darker set of icons.
 
 ## Turn dust and shake off
 
@@ -116,8 +115,7 @@ These are real limits of Bedrock, not missing files:
 
 - The player skeleton has no knees or elbows. This pack replaces the two vanilla stride animations, `animation.player.move.legs` and `animation.player.move.arms`, and pitches the waist for lean, jump, fall, and landing. It does not move the root, waist, or body position, so the feet stay on Minecraft's ground line. Swim and crawl still override the limb animations.
 - Sprint and walk share one stride phase, `query.modified_distance_moved * 38.17`. Sprint used to multiply that phase by a blend that lagged after you let go, and the lag scrubbed the cosine through another fast step. Speed still comes from how fast distance increases. The wider arms, longer legs, and forward lean fade out through `variable.rm_sprint` only.
-- The classic player model has no eyelid, eyeball, or pupil bones. Eyes are pixels on the skin. Vanilla's persona blink controller only flips a variable for character-creator faces; it does not move Steve's face, and this pack does not pretend that it does. The blink and idle glance are a second geometry, `geometry.realistic.player.eyes`, with its own texture and render controller. Empty root, waist, body, and head bones use the same pivots as the player, so lean and look-at carry the overlay. The lids scale shut from their top edge and the pupils slide a short distance. Neither channel is a state in the movement controller, so a blink cannot restart the walk or sprint.
-- The overlay is white sclera, a dark pupil, and a tan lid. It will not match every skin. It sits on the classic 8×8 head, in front of the hat layer, and it is hidden in first person, spectator, and the map face. A character-creator head can still show this classic-position overlay in addition to its own face. Sleep closes the lids.
+- The eyes stay the pixels painted on the skin. The player model has no eyelid or pupil bones, so Bedrock cannot blink or glance those pixels. Drawing a second eye model on the head stacks another pair of eyes on the skin, which looks wrong, so this pack does not do that.
 - There is no animation event before the jump leaves the ground. A small crouch plays only if Bedrock reports `query.is_jumping` while the player is still standing. The visible takeoff is the short blend at the start of the jump. Jump height and speed are unchanged.
 - First person can only move the hand. The walk bob stays, with a small rise, fall, and crouch offset.
 - Overriding the player needs a full copy of `player.entity.json`. This copy is Mojang's current samples file plus the new motion, with `min_engine_version` set to `1.8.0` so character-creator skins and capes keep working. A later Minecraft update that changes the player will not merge into this copy until the pack is updated.
@@ -126,15 +124,13 @@ These are real limits of Bedrock, not missing files:
 - Rain mist calls `dimension.getWeather()`. That function is in the 2.13 preview API, not in 2.6.0. On 26.52 the call is skipped. Forest, desert, cave, Nether, and End particles do not need it.
 - The HUD edits are the classic hotbar, hearts, hunger, and experience icons, at the original pixel sizes so the layout stays put. The newer Ore UI main menu is not replaced.
 - Animated water, lava, and fire are untouched. Replacing them means replacing the whole flipbook list, which would break every other vanilla animation.
-- This project was checked as files: JSON, image sizes, script syntax, the stride and blink math, and the `.mcaddon` layout. Minecraft is not installed in this environment, so none of this was watched in-game. After you import the new file, test it with the steps below.
+- This project was checked as files: JSON, image sizes, script syntax, the stride math, and the `.mcaddon` layout. Minecraft is not installed in this environment, so none of this was watched in-game. After you import the new file, test it with the steps below.
 
-## Retest the sprint stop and the eyes
+## Retest after removing the extra eyes
 
-Bedrock keeps the previous copy of a pack. Delete both Realistic Minecraft packs under Settings, Storage, then download the `.mcaddon` again and activate both packs. Use third person. Minecraft was not launched here, so these six sequences still need a phone:
+Bedrock keeps the previous copy of a pack. Delete both Realistic Minecraft packs under Settings, Storage, then download the `.mcaddon` again and activate both packs. Use third person. The face should be your skin only. Minecraft was not launched here, so these still need a phone:
 
-1. Sprint, then release sprint and keep walking. The arms and legs should shrink into the walk. There should not be one extra fast step.
-2. Sprint, then stop moving completely. The body should ease to idle. It should not play another sprint cycle first.
-3. Walk and stop several times. Each stop should settle to the resting pose, and the next walk should start from that rest.
-4. Jump and land while watching the eyes. A blink may happen during the jump. The jump, fall, and landing poses should keep playing.
-5. Blink while sprinting. The lids close and open on their own. The sprint stride should not restart when they do.
-6. Stand still for several seconds. Blinks should repeat with uneven gaps, and the pupils should glance left, right, slightly up, or slightly down, then return to looking forward.
+1. Look at the face. There should be one pair of eyes, the ones on the skin.
+2. Sprint, then release sprint and keep walking. The arms and legs should shrink into the walk. There should not be one extra fast step.
+3. Sprint, then stop moving completely. The body should ease to idle. It should not play another sprint cycle first.
+4. Walk and stop several times. Each stop should settle to the resting pose, and the next walk should start from that rest.

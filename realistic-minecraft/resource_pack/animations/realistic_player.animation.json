@@ -98,20 +98,6 @@
         }
       }
     },
-    "animation.realistic.player.face": {
-      "loop": true,
-      "bones": {
-        "left_eyelid": {
-          "scale": ["1.0", "math.lerp(0.12, 1.0, variable.rm_blink)", "1.0"]
-        },
-        "right_eyelid": {
-          "scale": ["1.0", "math.lerp(0.12, 1.0, variable.rm_blink)", "1.0"]
-        },
-        "eye_look": {
-          "position": ["variable.rm_look_x", "variable.rm_look_y", 0.0]
-        }
-      }
-    },
     "animation.realistic.player.land": {
       "animation_length": 0.34,
       "loop": false,

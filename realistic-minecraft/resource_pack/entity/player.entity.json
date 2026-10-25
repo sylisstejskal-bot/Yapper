@@ -11,13 +11,11 @@
       },
       "textures": {
         "default": "textures/entity/steve",
-        "cape": "textures/entity/cape_invisible",
-        "eyes": "textures/entity/realistic_eyes"
+        "cape": "textures/entity/cape_invisible"
       },
       "geometry": {
         "default": "geometry.humanoid.custom",
-        "cape": "geometry.cape",
-        "eyes": "geometry.realistic.player.eyes"
+        "cape": "geometry.cape"
       },
       "scripts": {
         "scale": "0.9375",
@@ -36,16 +34,7 @@
           "variable.rm_was_air = 0.0;",
           "variable.rm_air_time = 0.0;",
           "variable.rm_air_start = 0.0;",
-          "variable.rm_crouch = 0.0;",
-          "variable.rm_blink = 0.0;",
-          "variable.rm_blinking = 0.0;",
-          "variable.rm_blink_start = 0.0;",
-          "variable.rm_next_blink = 1.8;",
-          "variable.rm_look_x = 0.0;",
-          "variable.rm_look_y = 0.0;",
-          "variable.rm_look_tx = 0.0;",
-          "variable.rm_look_ty = 0.0;",
-          "variable.rm_next_glance = 1.4;"
+          "variable.rm_crouch = 0.0;"
         ],
         "pre_animation": [
           "variable.helmet_layer_visible = !query.has_head_gear;",
@@ -63,18 +52,6 @@
           "variable.rm_live = (query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? 0.0 : math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0);",
           "variable.rm_amp = variable.rm_live < 0.02 ? math.lerp(variable.rm_amp, 0.0, 0.7) : math.lerp(variable.rm_amp, variable.rm_live, 0.45);",
           "variable.rm_sprint = (query.is_sprinting && variable.rm_live > 0.12) ? math.lerp(variable.rm_sprint, 1.0, 0.5) : (variable.rm_live < 0.02 ? 0.0 : math.lerp(variable.rm_sprint, 0.0, 0.7));",
-          "variable.rm_blink_done = variable.rm_blinking > 0.5 && (query.life_time - variable.rm_blink_start) >= 0.18;",
-          "variable.rm_next_blink = variable.rm_blink_done ? (query.life_time + math.random(2.4, 6.4)) : variable.rm_next_blink;",
-          "variable.rm_blinking = variable.rm_blink_done ? 0.0 : variable.rm_blinking;",
-          "variable.rm_blink_start = (variable.rm_blinking < 0.5 && query.life_time > variable.rm_next_blink) ? query.life_time : variable.rm_blink_start;",
-          "variable.rm_blinking = (variable.rm_blinking < 0.5 && query.life_time > variable.rm_next_blink) ? 1.0 : variable.rm_blinking;",
-          "variable.rm_blink = query.is_sleeping ? 1.0 : math.sin(math.clamp((variable.rm_blinking > 0.5 ? (query.life_time - variable.rm_blink_start) / 0.18 : 0.0), 0.0, 1.0) * 180.0);",
-          "variable.rm_pick_look = query.life_time > variable.rm_next_glance ? 1.0 : 0.0;",
-          "variable.rm_look_tx = variable.rm_pick_look > 0.5 ? ((variable.rm_live < 0.08 && math.random(0.0, 1.0) > 0.42) ? math.random(-0.32, 0.32) : 0.0) : (variable.rm_live < 0.08 ? variable.rm_look_tx : 0.0);",
-          "variable.rm_look_ty = variable.rm_pick_look > 0.5 ? ((variable.rm_live < 0.08 && math.random(0.0, 1.0) > 0.42) ? math.random(-0.14, 0.18) : 0.0) : (variable.rm_live < 0.08 ? variable.rm_look_ty : 0.0);",
-          "variable.rm_next_glance = variable.rm_pick_look > 0.5 ? (query.life_time + math.random(1.4, 3.8)) : variable.rm_next_glance;",
-          "variable.rm_look_x = math.lerp(variable.rm_look_x, variable.rm_live < 0.08 ? variable.rm_look_tx : 0.0, 0.06);",
-          "variable.rm_look_y = math.lerp(variable.rm_look_y, variable.rm_live < 0.08 ? variable.rm_look_ty : 0.0, 0.06);",
           "variable.rm_just_landed = query.is_on_ground > 0.5 && variable.rm_was_air > 0.5 && variable.rm_air_time > 0.12;",
           "variable.rm_land = variable.rm_just_landed ? 1.0 : math.lerp(variable.rm_land, 0.0, variable.rm_live > 0.2 ? 0.22 : 0.1);",
           "variable.rm_air_start = (query.is_on_ground < 0.5 && variable.rm_was_air < 0.5) ? query.life_time : variable.rm_air_start;",
@@ -86,8 +63,7 @@
         ],
         "animate": [
           "root",
-          "realistic_motion",
-          "realistic_face"
+          "realistic_motion"
         ],
         "variables": {
           "variable.fp_melee_spear_use_attachable_rotation_z": "public",
@@ -177,8 +153,7 @@
         "realistic_lean": "animation.realistic.player.lean",
         "realistic_jump": "animation.realistic.player.jump",
         "realistic_fall": "animation.realistic.player.fall",
-        "realistic_land": "animation.realistic.player.land",
-        "realistic_face": "animation.realistic.player.face"
+        "realistic_land": "animation.realistic.player.land"
       },
       "render_controllers": [
         {
@@ -195,9 +170,6 @@
         },
         {
           "controller.render.player.map": "variable.map_face_icon"
-        },
-        {
-          "controller.render.realistic.player.eyes": "!variable.is_first_person && !query.is_spectator && !variable.map_face_icon"
         }
       ],
       "enable_attachables": true,

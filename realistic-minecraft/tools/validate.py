@@ -121,39 +121,18 @@ def check_player() -> None:
             fail(f"player pre_animation is missing {token}")
     if pre_animation.find("variable.gliding_speed_value =") > pre_animation.find("variable.tcos0"):
         fail("gliding_speed_value must be set before tcos0 divides by it")
-    if description["scripts"]["animate"] != ["root", "realistic_motion", "realistic_face"]:
-        fail("player animate list must be root, realistic_motion, then realistic_face")
-    if names.get("realistic_face") != "animation.realistic.player.face":
-        fail("face animation is not registered on the player")
-    if "animation.realistic.player.face" not in animations["animations"]:
-        fail("face animation is missing")
-    face = json.dumps(animations["animations"]["animation.realistic.player.face"])
-    for token in ("left_eyelid", "right_eyelid", "eye_look", "variable.rm_blink", "variable.rm_look_x", "math.lerp(0.12, 1.0"):
-        if token not in face:
-            fail(f"face animation is missing {token}")
-    for state in states.values():
-        if "realistic_face" in json.dumps(state.get("animations", [])):
-            fail("blinking must stay outside the movement controller")
-    eyes_geo = load_json(RP / "models" / "entity" / "realistic_eyes.geo.json")
-    if not eyes_geo:
-        return
-    eye_bones = {
-        bone["name"]: bone
-        for bone in eyes_geo["minecraft:geometry"][0]["bones"]
-    }
-    if eyes_geo["minecraft:geometry"][0]["description"]["identifier"] != "geometry.realistic.player.eyes":
-        fail("eye geometry identifier changed")
-    for bone_name in ("head", "left_eyelid", "right_eyelid", "eye_look"):
-        if bone_name not in eye_bones:
-            fail(f"eye geometry is missing {bone_name}")
-    if eye_bones["left_eyelid"].get("parent") != "head" or eye_bones["right_eyelid"].get("parent") != "head":
-        fail("eyelids must be parented to the head bone")
-    if eye_bones["eye_look"].get("parent") != "head":
-        fail("eye glance bone must be parented to the head")
-    if description["geometry"].get("eyes") != "geometry.realistic.player.eyes":
-        fail("player is not rendering the eye geometry")
-    if description["textures"].get("eyes") != "textures/entity/realistic_eyes":
-        fail("player is missing the eye texture")
+    if description["scripts"]["animate"] != ["root", "realistic_motion"]:
+        fail("player animate list must be root, then realistic_motion")
+    if "eyes" in description.get("geometry", {}) or "eyes" in description.get("textures", {}):
+        fail("do not draw a second pair of eyes over the skin")
+    if (RP / "models" / "entity" / "realistic_eyes.geo.json").exists():
+        fail("remove the eye overlay geometry")
+    if (RP / "textures" / "entity" / "realistic_eyes.png").exists():
+        fail("remove the eye overlay texture")
+    if "animation.realistic.player.face" in animations["animations"]:
+        fail("remove the face overlay animation")
+    if "realistic_face" in names:
+        fail("player still registers the face overlay")
     grounded = {"root", "waist", "body", "leftleg", "rightleg", "leftarm", "rightarm"}
     for animation_name, animation in animations["animations"].items():
         for bone, channels in animation.get("bones", {}).items():
@@ -227,13 +206,6 @@ def check_images() -> None:
         with Image.open(path) as image:
             if image.size != (32, 32):
                 fail(f"item {path.name} is {image.size}")
-    eyes = RP / "textures" / "entity" / "realistic_eyes.png"
-    if not eyes.exists():
-        fail("missing eye overlay texture")
-    else:
-        with Image.open(eyes) as image:
-            if image.size != (16, 16):
-                fail(f"realistic_eyes.png is {image.size}, expected 16x16")
     for path in (RP / "textures" / "particle").glob("*.png"):
         with Image.open(path) as image:
             if image.size != (16, 16):

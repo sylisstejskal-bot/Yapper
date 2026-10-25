@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 
 
@@ -52,11 +51,6 @@ def pose(cos: float, blend: float, amp: float, *, rise: float = 0.0, fall: float
     return left_leg, right_leg, left_arm, right_arm
 
 
-def blink_amount(progress: float) -> float:
-    """Molang math.sin takes degrees. The curve starts and ends open."""
-    return math.sin(math.radians(clamp(progress, 0.0, 1.0) * 180.0))
-
-
 def expect(condition: bool, message: str) -> None:
     if not condition:
         raise SystemExit(message)
@@ -69,37 +63,28 @@ def balanced(text: str) -> bool:
 def check_files() -> None:
     entity = json.loads((ROOT / "resource_pack/entity/player.entity.json").read_text())
     animations = json.loads((ROOT / "resource_pack/animations/realistic_player.animation.json").read_text())
-    eyes = json.loads((ROOT / "resource_pack/models/entity/realistic_eyes.geo.json").read_text())
-    controller = json.loads((ROOT / "resource_pack/animation_controllers/realistic_player.animation_controllers.json").read_text())
     description = entity["minecraft:client_entity"]["description"]
     scripts = description["scripts"]
-    expect(scripts["animate"] == ["root", "realistic_motion", "realistic_face"], "face animation must play beside root, not inside it")
+    expect(scripts["animate"] == ["root", "realistic_motion"], "root must play before the extra controller")
     names = description["animations"]
     expect(names["root"] == "controller.animation.player.root", "vanilla root controller is not registered")
     expect(names["move.legs"] == "animation.player.move.legs", "move.legs is not hooked to the override")
     expect(names["move.arms"] == "animation.player.move.arms", "move.arms is not hooked to the override")
-    expect(names["realistic_face"] == "animation.realistic.player.face", "face animation is not registered")
+    expect("eyes" not in description["geometry"] and "eyes" not in description["textures"], "the skin already has eyes")
+    expect("animation.realistic.player.face" not in animations["animations"], "the face overlay animation is still defined")
     pre = scripts["pre_animation"]
     expect(all(balanced(line) for line in pre), "a pre_animation expression has unbalanced parentheses")
     joined = "\n".join(pre)
     expect(joined.find("variable.gliding_speed_value =") < joined.find("variable.tcos0"), "tcos0 still divides by an unset speed")
-    expect("query.is_sprinting" in joined and "variable.rm_next_blink" in joined, "sprint and blink timers must be driven before the animations")
+    expect("query.is_sprinting" in joined, "sprint state must be driven before the animations")
+    expect("variable.rm_blink" not in joined and "variable.rm_look" not in joined, "eye overlay variables should be gone")
     legs = json.dumps(animations["animations"]["animation.player.move.legs"])
     arms = json.dumps(animations["animations"]["animation.player.move.arms"])
     for token in ("query.modified_distance_moved * 38.17", "query.position_delta", "math.cos", "variable.rm_sprint"):
         expect(token in legs and token in arms, f"limb animation is missing {token}")
     expect("math.lerp(38.17, 52.0" not in legs, "sprint still rescales the stride phase")
     expect("query.is_sprinting" not in legs and "query.is_sprinting" not in arms, "limbs must not restart a sprint cycle from the sprint flag")
-    expect("variable.rm_look" not in legs and "variable.rm_blink" not in legs, "eyes must not change the walk")
     expect(balanced(legs) and balanced(arms), "limb Molang has unbalanced parentheses")
-    face = animations["animations"]["animation.realistic.player.face"]
-    expect("left_eyelid" in face["bones"] and "right_eyelid" in face["bones"] and "eye_look" in face["bones"], "face animation is missing an eye bone")
-    expect("scale" in face["bones"]["left_eyelid"] and "position" in face["bones"]["eye_look"], "blink and glance use the wrong channels")
-    motion = controller["animation_controllers"]["controller.animation.realistic.player.motion"]
-    expect("realistic_face" not in json.dumps(motion), "the movement controller must not own blinking")
-    bones = {bone["name"]: bone for bone in eyes["minecraft:geometry"][0]["bones"]}
-    expect(bones["left_eyelid"]["parent"] == "head" and bones["right_eyelid"]["parent"] == "head", "eyelids must follow the head")
-    expect(bones["eye_look"]["parent"] == "head", "pupils must follow the head")
     for animation in animations["animations"].values():
         for bone, channels in animation.get("bones", {}).items():
             if bone.lower() in {"root", "waist", "body"} and "position" in channels:
@@ -149,21 +134,11 @@ def main() -> None:
     airborne = pose(1.0, 0.0, 1.0, rise=1.0)
     falling = pose(1.0, 0.0, 1.0, fall=1.0)
     expect(airborne[0] < -20.0 and falling[0] > 8.0, "rising and falling stay distinct from the walk")
-    expect(abs(blink_amount(0.0)) < 1e-9 and abs(blink_amount(1.0)) < 1e-9, "each blink must open again")
-    expect(abs(blink_amount(0.5) - 1.0) < 1e-9, "the middle of a blink closes the lid")
-    expect(pose(1.0, 0.0, 1.0) == pose(1.0, 0.0, 1.0), "a glance must not move the legs")
-    look = 0.0
-    for _ in range(40):
-        look = lerp(look, 0.32, 0.06)
-    expect(0.2 < look < 0.32, "an idle glance eases toward its target")
-    for _ in range(40):
-        look = lerp(look, 0.0, 0.06)
-    expect(abs(look) < 0.05, "moving returns the eyes forward")
-    print("walk, sprint-stop, and eye wiring ok")
+    print("walk and sprint-stop wiring ok")
     print(f"walk=({walk[0]:.1f},{walk[1]:.1f}) arms=({walk[2]:.1f},{walk[3]:.1f})")
     print(f"sprint=({sprint[0]:.1f},{sprint[1]:.1f}) arms=({sprint[2]:.1f},{sprint[3]:.1f})")
     print(f"release=({released[0]:.1f},{released[1]:.1f}) rest=({rested[0]:.2f},{rested[1]:.2f})")
-    print(f"rise={airborne[0]:.1f} fall={falling[0]:.1f} blink_mid={blink_amount(0.5):.2f}")
+    print(f"rise={airborne[0]:.1f} fall={falling[0]:.1f}")
 
 
 if __name__ == "__main__":
