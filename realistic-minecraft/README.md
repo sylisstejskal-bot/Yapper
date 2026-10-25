@@ -41,8 +41,8 @@ Cheats can stay off. The effects start with the behavior pack.
 Try these in order:
 
 1. Look at grass, wood, stone, and ore. Textures are 32×32, so edges are clearer than vanilla and the style still matches across blocks.
-2. Tap the perspective button until you see your body. Walk, then sprint. The body leans, and a sprint swings the arms and legs a little farther.
-3. Jump. In third person the legs split and the body tips forward. In first person the hand lifts a little. First person never shows your legs. Bedrock does not draw them there.
+2. Tap the perspective button until you see your body. Stand still: the feet stay on the ground and the limbs rest. Walk, then stop. The legs and opposite arms swing, then ease back to rest. Sprint swings a little farther and the waist leans from the hips.
+3. Jump. The arms trail, then lift, and the legs move into a rising pose. Falling is a different pose. Landing eases back to standing without dropping the body into the ground. First person only nudges the hand. Bedrock does not draw your legs there.
 4. Walk off a one-block step. You get no shake.
 5. Drop about four blocks. You get a dust burst and a short camera shake.
 6. Get hit. The view kicks once, lightly.
@@ -113,8 +113,9 @@ Each block has a texture set: the color image, a height map, and a simple metal/
 
 These are real limits of Bedrock, not missing files:
 
-- The player skeleton has no knees or elbows. Poses bend the vanilla arms, legs, and body. They stack on top of Minecraft's walk, they do not replace the whole body.
-- First person can only move the hand. Sprint bob and a small jump or fall offset are what you get there.
+- The player skeleton has no knees or elbows. This pack replaces the two vanilla stride animations, `animation.player.move.legs` and `animation.player.move.arms`, and pitches the waist for lean, jump, fall, and landing. It does not move the root, waist, or body position, so the feet stay on Minecraft's ground line. Swim and crawl still override the limb animations.
+- There is no animation event before the jump leaves the ground. A small crouch plays only if Bedrock reports `query.is_jumping` while the player is still standing. The visible takeoff is the short blend at the start of the jump. Jump height and speed are unchanged.
+- First person can only move the hand. The walk bob stays, with a small rise, fall, and crouch offset.
 - Overriding the player needs a full copy of `player.entity.json`. This copy is Mojang's current samples file plus the new motion, with `min_engine_version` set to `1.8.0` so character-creator skins and capes keep working. A later Minecraft update that changes the player will not merge into this copy until the pack is updated.
 - `Camera.addShake` exists in `@minecraft/server` 2.10.0. That module is documented against 1.26.70 preview, not the 26.52 Play Store build. This pack depends on 2.6.0, which 26.0 and newer already include, and shakes the camera with the built-in `camerashake` command.
 - Script FOV is not used. Setting it would replace your FOV slider and the vanilla sprint FOV.

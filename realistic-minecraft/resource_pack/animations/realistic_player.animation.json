@@ -5,18 +5,10 @@
       "loop": true,
       "bones": {
         "leftleg": {
-          "rotation": [
-            "(query.is_riding || query.is_gliding || query.is_sleeping) ? (variable.tcos0 * -1.4) : (query.is_on_ground ? (variable.tcos0 * -1.4 * (query.is_sprinting ? 1.18 : (query.is_sneaking ? 0.62 : 1.0))) : (query.position_delta(1) > 0.0 ? -36.0 : 16.0))",
-            -0.1,
-            -0.1
-          ]
+          "rotation": ["variable.rm_leg_l", -0.1, -0.1]
         },
         "rightleg": {
-          "rotation": [
-            "(query.is_riding || query.is_gliding || query.is_sleeping) ? (variable.tcos0 * 1.4) : (query.is_on_ground ? (variable.tcos0 * 1.4 * (query.is_sprinting ? 1.18 : (query.is_sneaking ? 0.62 : 1.0))) : (query.position_delta(1) > 0.0 ? 22.0 : -12.0))",
-            0.1,
-            0.1
-          ]
+          "rotation": ["variable.rm_leg_r", 0.1, 0.1]
         }
       }
     },
@@ -24,18 +16,10 @@
       "loop": true,
       "bones": {
         "leftarm": {
-          "rotation": [
-            "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_riding || query.is_gliding || query.is_sleeping) ? variable.tcos0 : (query.is_on_ground ? (variable.tcos0 * (query.is_sprinting ? 1.22 : 1.0)) : (query.position_delta(1) > 0.0 ? -52.0 : -12.0))",
-            0.0,
-            "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_on_ground || query.is_riding || query.is_gliding) ? 0.0 : (query.position_delta(1) > 0.0 ? -14.0 : -26.0)"
-          ]
+          "rotation": ["variable.rm_arm_l", 0.0, "variable.rm_arm_lz"]
         },
         "rightarm": {
-          "rotation": [
-            "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_riding || query.is_gliding || query.is_sleeping) ? (-variable.tcos0) : (query.is_on_ground ? (-variable.tcos0 * (query.is_sprinting ? 1.22 : 1.0)) : (query.position_delta(1) > 0.0 ? -46.0 : -8.0))",
-            0.0,
-            "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_on_ground || query.is_riding || query.is_gliding) ? 0.0 : (query.position_delta(1) > 0.0 ? 14.0 : 26.0)"
-          ]
+          "rotation": ["variable.rm_arm_r", 0.0, "variable.rm_arm_rz"]
         }
       }
     },
@@ -45,15 +29,15 @@
         "leftarm": {
           "position": [
             "math.sin(-query.walk_distance * 180.0) * variable.hand_bob * 9.75",
-            "-math.abs(math.cos(-query.walk_distance * 180.0)) * variable.hand_bob * (query.is_sprinting ? 18.0 : 14.5) + variable.short_arm_offset_left + (query.is_on_ground ? 0.0 : (query.position_delta(1) > 0.0 ? -1.8 : 2.6))",
-            "query.is_on_ground ? 0.0 : (query.position_delta(1) < -0.08 ? 1.4 : -0.5)"
+            "-math.abs(math.cos(-query.walk_distance * 180.0)) * variable.hand_bob * (query.is_sprinting ? 16.5 : 15.0) + variable.short_arm_offset_left - variable.rm_rise * 0.65 + variable.rm_fall * 0.85 - variable.rm_crouch * 0.4",
+            "variable.rm_fall * 0.3"
           ]
         },
         "rightarm": {
           "position": [
             "math.sin(-query.walk_distance * 180.0) * variable.hand_bob * 9.75",
-            "-math.abs(math.cos(-query.walk_distance * 180.0)) * variable.hand_bob * (query.is_sprinting ? 18.0 : 14.5) + variable.short_arm_offset_right + (query.is_on_ground ? 0.0 : (query.position_delta(1) > 0.0 ? -1.8 : 2.6))",
-            "query.is_on_ground ? 0.0 : (query.position_delta(1) < -0.08 ? 1.4 : -0.5)"
+            "-math.abs(math.cos(-query.walk_distance * 180.0)) * variable.hand_bob * (query.is_sprinting ? 16.5 : 15.0) + variable.short_arm_offset_right - variable.rm_rise * 0.65 + variable.rm_fall * 0.85 - variable.rm_crouch * 0.4",
+            "variable.rm_fall * 0.3"
           ]
         }
       }
@@ -62,18 +46,18 @@
       "loop": true,
       "bones": {
         "body": {
-          "position": [0.0, "math.sin(query.life_time * 90.0) * 0.16", 0.0]
+          "rotation": ["math.sin(query.life_time * 55.0) * 0.7", 0.0, 0.0]
         }
       }
     },
     "animation.realistic.player.lean": {
       "loop": true,
       "bones": {
-        "body": {
+        "waist": {
           "rotation": [
-            "(query.is_sprinting ? 9.0 : 3.5) * math.clamp(query.modified_move_speed, 0.0, 1.0)",
+            "(query.is_sprinting ? -5.0 : -2.0) * math.clamp(query.modified_move_speed, 0.0, 1.0)",
             0.0,
-            "math.sin(query.modified_distance_moved * 38.17) * (query.is_sprinting ? 3.2 : 1.8)"
+            "math.sin(query.modified_distance_moved * 38.17) * (query.is_sprinting ? 1.4 : 0.8)"
           ]
         }
       }
@@ -81,47 +65,32 @@
     "animation.realistic.player.jump": {
       "loop": true,
       "bones": {
-        "body": {
-          "rotation": [7.0, 0.0, 0.0],
-          "position": [0.0, 0.4, 0.0]
+        "waist": {
+          "rotation": [3.0, 0.0, 0.0]
         }
       }
     },
     "animation.realistic.player.fall": {
       "loop": true,
       "bones": {
-        "body": {
+        "waist": {
           "rotation": [
-            "math.clamp((-query.position_delta(1)) * 65.0, 0.0, 14.0)",
+            "-math.clamp((-query.position_delta(1)) * 22.0, 0.0, 7.0)",
             0.0,
-            "math.sin(query.life_time * 200.0) * 1.6"
+            0.0
           ]
         }
       }
     },
     "animation.realistic.player.land": {
-      "animation_length": 0.26,
+      "animation_length": 0.34,
       "loop": false,
       "bones": {
-        "body": {
-          "position": {
-            "0.0": [0.0, 0.0, 0.0],
-            "0.06": [0.0, -1.15, 0.0],
-            "0.26": [0.0, 0.0, 0.0]
-          }
-        },
-        "leftleg": {
+        "waist": {
           "rotation": {
             "0.0": [0.0, 0.0, 0.0],
-            "0.06": [-14.0, 0.0, 0.0],
-            "0.26": [0.0, 0.0, 0.0]
-          }
-        },
-        "rightleg": {
-          "rotation": {
-            "0.0": [0.0, 0.0, 0.0],
-            "0.06": [-11.0, 0.0, 0.0],
-            "0.26": [0.0, 0.0, 0.0]
+            "0.08": [-4.5, 0.0, 0.0],
+            "0.34": [0.0, 0.0, 0.0]
           }
         }
       }

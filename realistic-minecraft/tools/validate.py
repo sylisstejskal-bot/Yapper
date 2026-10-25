@@ -108,10 +108,34 @@ def check_player() -> None:
     ):
         if required not in defined:
             fail(f"missing override {required}")
-    states = controller["animation_controllers"]["controller.animation.realistic.player.motion"]["states"]
+    controllers = controller["animation_controllers"]
+    if list(controllers) != ["controller.animation.realistic.player.motion"]:
+        fail("player motion must stay on one animation controller")
+    states = controllers["controller.animation.realistic.player.motion"]["states"]
     for state in ("ground", "jump", "fall", "land"):
         if state not in states:
             fail(f"motion controller is missing {state}")
+    pre_animation = "\n".join(description["scripts"]["pre_animation"])
+    for token in ("variable.rm_stride", "variable.rm_leg_l", "variable.rm_landing", "variable.tcos0"):
+        if token not in pre_animation:
+            fail(f"player pre_animation is missing {token}")
+    if description["scripts"]["animate"] != ["root", "realistic_motion"]:
+        fail("player animate list must stay root, then realistic_motion")
+    grounded = {"root", "waist", "body", "leftleg", "rightleg", "leftarm", "rightarm"}
+    for animation_name, animation in animations["animations"].items():
+        for bone, channels in animation.get("bones", {}).items():
+            if "position" not in channels:
+                continue
+            if animation_name == "animation.player.first_person.walk" and bone.lower() in {"leftarm", "rightarm"}:
+                continue
+            if bone.lower() in grounded:
+                fail(f"{animation_name} moves {bone}, which lifts or sinks the player")
+    leg_rotation = json.dumps(animations["animations"]["animation.player.move.legs"])
+    if "variable.rm_leg_l" not in leg_rotation or "variable.rm_leg_r" not in leg_rotation:
+        fail("walk cycle must drive both legs from the smoothed stride")
+    land_bones = animations["animations"]["animation.realistic.player.land"]["bones"]
+    if set(land_bones) != {"waist"}:
+        fail("landing may only pitch the waist")
     if (RP / "textures" / "terrain_texture.json").exists():
         fail("do not replace terrain_texture.json; it is not a merge")
     if (RP / "textures" / "flipbook_textures.json").exists():
