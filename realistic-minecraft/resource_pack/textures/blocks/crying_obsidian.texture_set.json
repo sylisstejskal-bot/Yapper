@@ -1,0 +1,13 @@
+{
+  "format_version": "1.21.30",
+  "minecraft:texture_set": {
+    "color": "crying_obsidian",
+    "heightmap": "crying_obsidian_h",
+    "metalness_emissive_roughness_subsurface": [
+      8,
+      40,
+      24,
+      0
+    ]
+  }
+}

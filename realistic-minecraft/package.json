@@ -1,0 +1,6 @@
+{
+  "name": "realistic-minecraft-tools",
+  "private": true,
+  "type": "module",
+  "description": "Local checks only. This file is not part of the Minecraft addon."
+}

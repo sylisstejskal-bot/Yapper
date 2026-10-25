@@ -1,0 +1,13 @@
+{
+  "format_version": "1.21.30",
+  "minecraft:texture_set": {
+    "color": "shroomlight",
+    "heightmap": "shroomlight_h",
+    "metalness_emissive_roughness_subsurface": [
+      0,
+      230,
+      36,
+      0
+    ]
+  }
+}

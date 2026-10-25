@@ -1,0 +1,13 @@
+{
+  "format_version": "1.21.30",
+  "minecraft:texture_set": {
+    "color": "redstone_block",
+    "heightmap": "redstone_block_h",
+    "metalness_emissive_roughness_subsurface": [
+      30,
+      20,
+      40,
+      0
+    ]
+  }
+}

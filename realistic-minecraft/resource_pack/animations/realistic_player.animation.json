@@ -1,0 +1,115 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.player.move.legs": {
+      "loop": true,
+      "bones": {
+        "leftleg": {
+          "rotation": [
+            "(query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? (variable.tcos0 * -1.4) : (math.cos(query.modified_distance_moved * 38.17) * math.lerp(-38.0, -62.0, variable.rm_sprint) * math.max(variable.rm_amp, math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0)) * (query.is_sneaking ? 0.5 : 1.0) * (1.0 - math.clamp(variable.rm_rise + variable.rm_fall + variable.rm_land, 0.0, 1.0)) + variable.rm_rise * -28.0 + variable.rm_fall * 12.0 + variable.rm_land * -8.0 + variable.rm_crouch * -7.0)",
+            -0.1,
+            -0.1
+          ]
+        },
+        "rightleg": {
+          "rotation": [
+            "(query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? (variable.tcos0 * 1.4) : (math.cos(query.modified_distance_moved * 38.17) * math.lerp(38.0, 62.0, variable.rm_sprint) * math.max(variable.rm_amp, math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0)) * (query.is_sneaking ? 0.5 : 1.0) * (1.0 - math.clamp(variable.rm_rise + variable.rm_fall + variable.rm_land, 0.0, 1.0)) + variable.rm_rise * 18.0 + variable.rm_fall * -10.0 + variable.rm_land * -6.0 + variable.rm_crouch * -5.0)",
+            0.1,
+            0.1
+          ]
+        }
+      }
+    },
+    "animation.player.move.arms": {
+      "loop": true,
+      "bones": {
+        "leftarm": {
+          "rotation": [
+            "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? variable.tcos0 : (math.cos(query.modified_distance_moved * 38.17) * math.lerp(34.0, 56.0, variable.rm_sprint) * math.max(variable.rm_amp, math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0)) * (query.is_sneaking ? 0.65 : 1.0) * (1.0 - math.clamp(variable.rm_rise + variable.rm_fall + variable.rm_land, 0.0, 1.0)) + variable.rm_rise * -42.0 + variable.rm_fall * -14.0 + variable.rm_land * -4.0 + variable.rm_crouch * 8.0)",
+            0.0,
+            "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_on_ground || query.is_riding || query.is_gliding || query.is_swimming) ? 0.0 : (variable.rm_fall * -16.0)"
+          ]
+        },
+        "rightarm": {
+          "rotation": [
+            "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_riding || query.is_gliding || query.is_sleeping || query.is_swimming || query.is_crawling) ? (-variable.tcos0) : (math.cos(query.modified_distance_moved * 38.17) * math.lerp(-34.0, -56.0, variable.rm_sprint) * math.max(variable.rm_amp, math.clamp(math.max(query.modified_move_speed, (math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)) - 0.004) * 20.0), 0.0, 1.0)) * (query.is_sneaking ? 0.65 : 1.0) * (1.0 - math.clamp(variable.rm_rise + variable.rm_fall + variable.rm_land, 0.0, 1.0)) + variable.rm_rise * -34.0 + variable.rm_fall * -10.0 + variable.rm_land * -3.0 + variable.rm_crouch * 6.0)",
+            0.0,
+            "(query.blocking || query.is_charging || variable.item_use_normalized > 0.0 || query.is_on_ground || query.is_riding || query.is_gliding || query.is_swimming) ? 0.0 : (variable.rm_fall * 16.0)"
+          ]
+        }
+      }
+    },
+    "animation.player.first_person.walk": {
+      "loop": true,
+      "bones": {
+        "leftarm": {
+          "position": [
+            "math.sin(-query.walk_distance * 180.0) * variable.hand_bob * 9.75",
+            "-math.abs(math.cos(-query.walk_distance * 180.0)) * variable.hand_bob * (query.is_sprinting ? 18.0 : 15.0) + variable.short_arm_offset_left - variable.rm_rise * 0.65 + variable.rm_fall * 0.85 - variable.rm_crouch * 0.4",
+            "variable.rm_fall * 0.3"
+          ]
+        },
+        "rightarm": {
+          "position": [
+            "math.sin(-query.walk_distance * 180.0) * variable.hand_bob * 9.75",
+            "-math.abs(math.cos(-query.walk_distance * 180.0)) * variable.hand_bob * (query.is_sprinting ? 18.0 : 15.0) + variable.short_arm_offset_right - variable.rm_rise * 0.65 + variable.rm_fall * 0.85 - variable.rm_crouch * 0.4",
+            "variable.rm_fall * 0.3"
+          ]
+        }
+      }
+    },
+    "animation.realistic.player.breathe": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "rotation": ["math.sin(query.life_time * 55.0) * 0.7", 0.0, 0.0]
+        }
+      }
+    },
+    "animation.realistic.player.lean": {
+      "loop": true,
+      "bones": {
+        "waist": {
+          "rotation": [
+            "math.lerp(-6.0, -16.0, variable.rm_sprint)",
+            0.0,
+            "math.sin(query.modified_distance_moved * 38.17) * math.lerp(2.0, 4.5, variable.rm_sprint)"
+          ]
+        }
+      }
+    },
+    "animation.realistic.player.jump": {
+      "loop": true,
+      "bones": {
+        "waist": {
+          "rotation": [3.0, 0.0, 0.0]
+        }
+      }
+    },
+    "animation.realistic.player.fall": {
+      "loop": true,
+      "bones": {
+        "waist": {
+          "rotation": [
+            "-math.clamp((-query.position_delta(1)) * 22.0, 0.0, 7.0)",
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "animation.realistic.player.land": {
+      "animation_length": 0.34,
+      "loop": false,
+      "bones": {
+        "waist": {
+          "rotation": {
+            "0.0": [0.0, 0.0, 0.0],
+            "0.08": [-4.5, 0.0, 0.0],
+            "0.34": [0.0, 0.0, 0.0]
+          }
+        }
+      }
+    }
+  }
+}

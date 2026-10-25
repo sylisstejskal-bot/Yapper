@@ -1,0 +1,13 @@
+{
+  "format_version": "1.21.30",
+  "minecraft:texture_set": {
+    "color": "leaves_birch",
+    "heightmap": "leaves_birch_h",
+    "metalness_emissive_roughness_subsurface": [
+      0,
+      0,
+      188,
+      32
+    ]
+  }
+}
