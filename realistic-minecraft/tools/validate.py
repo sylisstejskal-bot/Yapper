@@ -251,9 +251,47 @@ def check_particles() -> None:
         count = effect["components"]["minecraft:emitter_rate_instant"]["num_particles"]
         if count > 12:
             fail(f"{identifier} spawns {count} particles; keep bursts small for phones")
-    for required in ("realistic:puff", "realistic:impact", "realistic:leaf", "realistic:spark"):
+    for required in (
+        "realistic:puff",
+        "realistic:impact",
+        "realistic:leaf",
+        "realistic:spark",
+        "realistic:clip",
+        "realistic:flurry",
+        "realistic:snow",
+        "realistic:chip",
+        "realistic:bubble",
+        "realistic:ripple",
+    ):
         if required not in ids:
             fail(f"missing particle {required}")
+    sounds = load_json(RP / "sound_definitions.json")
+    if not sounds:
+        return
+    for key in ("realistic.rustle", "realistic.drip"):
+        entry = sounds.get("sound_definitions", {}).get(key)
+        if not entry:
+            fail(f"missing sound definition {key}")
+            continue
+        for item in entry.get("sounds", []):
+            name = item["name"] if isinstance(item, dict) else item
+            ogg = RP / f"{name}.ogg"
+            if not ogg.exists():
+                fail(f"{key} is missing {ogg.name}")
+    quadruped = load_json(RP / "animations" / "realistic_quadruped.animation.json")
+    if quadruped:
+        walk = quadruped["animations"].get("animation.quadruped.walk", {})
+        bones = walk.get("bones", {})
+        for bone in ("leg0", "leg1", "leg2", "leg3", "body", "head"):
+            if bone not in bones:
+                fail(f"quadruped walk is missing {bone}")
+        dumped = json.dumps(bones)
+        if "38.17, 52.0" in dumped or "lerp(38.17" in dumped:
+            fail("quadruped walk must keep one stride phase")
+        if "Math.cos(query.anim_time * 38.17) * 72.0" not in dumped:
+            fail("quadruped legs must keep an opposing stride")
+        if "Math.cos(query.anim_time * 38.17) * -72.0" not in dumped:
+            fail("quadruped legs must swing in pairs")
 
 
 def check_scripts() -> None:
@@ -269,6 +307,12 @@ def check_scripts() -> None:
         fail("main.js should keep the editable numbers in tuning.js")
     if "export function landingAction" not in tuning:
         fail("tuning.js is missing landingAction")
+    if "export function footstepParticle" not in tuning:
+        fail("tuning.js is missing footstepParticle")
+    if "dimension.getWeather()" in main and "typeof dimension.getWeather" not in main:
+        fail("getWeather is not in script API 2.6.0; call it only when it exists")
+    if "realistic:clip" not in main and "footstepParticle" not in main:
+        fail("footsteps must go through footstepParticle")
 
 
 def package() -> None:

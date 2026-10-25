@@ -2,23 +2,23 @@
   "format_version": 2,
   "header": {
     "name": "Realistic Minecraft Behavior",
-    "description": "Landing dust, a light impact shake, and sparse biome particles. Mining, combat, and movement rules stay vanilla.",
+    "description": "Surface footsteps, landing dust, a light impact shake, and sparse biome particles. Mining, combat, and movement rules stay vanilla.",
     "uuid": "fb54b911-f8e3-41ec-8397-f7cc5b838423",
-    "version": [1, 0, 0],
+    "version": [1, 1, 0],
     "min_engine_version": [1, 26, 0]
   },
   "modules": [
     {
       "type": "data",
       "uuid": "6edebdb3-43d9-44c3-90a1-fd3016ca4179",
-      "version": [1, 0, 0]
+      "version": [1, 1, 0]
     },
     {
       "type": "script",
       "language": "javascript",
       "uuid": "2fe765dc-f812-409e-b436-a47aad0bfdfd",
       "entry": "scripts/main.js",
-      "version": [1, 0, 0]
+      "version": [1, 1, 0]
     }
   ],
   "dependencies": [
@@ -28,7 +28,7 @@
     },
     {
       "uuid": "cd02cbfd-373b-4365-b17c-95839de81131",
-      "version": [1, 0, 0]
+      "version": [1, 1, 0]
     }
   ]
 }

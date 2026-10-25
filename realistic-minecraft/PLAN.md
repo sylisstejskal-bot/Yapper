@@ -21,14 +21,18 @@ The pack targets **1.26.0 / script API 2.6.0**, which 26.52 already includes. It
 
 1. **Resource pack.** 32×32 color textures for the common overworld, deepslate, nether, and end surfaces, plus wood types through cherry, pale oak, and mangrove. Ores are clusters, not single pixels. Items in the hotbar (gems, ingots, tools, food, bow, arrow) are redrawn at 32×32. HUD icons keep vanilla's exact pixel sizes.
 2. **Motion.** The vanilla player root controller already plays `move.legs` and `move.arms`. Those two overrides are the walk and sprint. The cycle is a cosine of `modified_distance_moved * 38.17`, with amplitude from horizontal movement, so it repeats while moving and rests while standing. That phase constant does not change with the sprint blend. An earlier version lerped the phase from 38.17 to 52 while sprint eased off, which scrubbed the cosine through an extra fast step after sprint ended. Sprint is now a wider swing and a deeper waist lean, driven only by `variable.rm_sprint`. Letting go while still moving eases that blend toward a walk. A full stop clears it immediately and the amplitude settles to idle. The old stride multiplied `variable.tcos0`, which divides by `variable.gliding_speed_value`. That variable was never set, the division was zero, and the limbs stayed still. Jump, fall, and landing still only rotate bones. Nothing translates the root, waist, or body.
-3. **Face.** The player eyes stay the pixels on the skin. An earlier build drew a second sclera, pupil, and lid on top of those pixels. That reads as a second pair of eyes, so the overlay geometry, texture, and render controller are gone. Bedrock cannot blink or glance the painted eyes on `geometry.humanoid.custom`.
-4. **Impact.** Soft landings puff dust. Landings past about 0.85 blocks/tick also shake the camera and play a quiet step sound. Hits shake the view. Simple graphics softens the shake and skips most ambient particles.
-5. **Particles.** One ambient speck every two seconds, chosen from the dimension, biome, and sky light. Jump dust, landing dust, water entry, and block-break dust are separate short bursts. No particle uses more than 8 sprites.
-6. **Behavior pack.** One script entry, `scripts/main.js`, with the numbers in `scripts/tuning.js`. `@minecraft/server` 2.6.0. The behavior pack depends on the resource pack so they import together.
+3. **Face.** The player eyes stay the pixels on the skin. Bedrock cannot blink those pixels, and a second eye mesh reads as another pair of eyes, so none is drawn.
+4. **World particles.** Leaves drift on a slow sideways curve in forests. Snowy biomes get one flake. Swamps and mangroves get mist. Footsteps spawn one small particle from the block under the player, about every 0.85 blocks of travel, and only while moving. Stone chips appear while sprinting. Swimming spawns one bubble about every 1.15 blocks, plus a splash on entry and a smaller ripple on exit. There is no block-wind animation: vanilla foliage has no bones.
+5. **Combat.** A hit the player lands sparks once on the target and does not shake the camera. Damage, reach, and attack speed stay vanilla. A hit that lands on the player still shakes the view. A blocking cause does not.
+6. **Animals.** `animation.quadruped.walk` keeps one distance phase and opposite legs, with a small body and head sway. Pigs, cows, sheep, and mooshrooms already use that animation.
+7. **Sound.** Two short original Vorbis clips, a leaf rustle and an underwater drip, play at low volume with a cooldown. Vanilla footstep and hit sounds are left to the game so they are not doubled.
+8. **Impact.** Soft landings puff dust. Landings past about 0.85 blocks/tick also shake the camera and play a quiet vanilla step sound. Simple graphics softens the shake and skips most ambient particles.
+9. **Behavior pack.** One script entry, `scripts/main.js`, with the numbers in `scripts/tuning.js`. `@minecraft/server` 2.6.0. The behavior pack depends on the resource pack so they import together. Pack version 1.1.0.
 
 ## What was left alone on purpose
 
-- Water, lava, and fire frames.
+- Water, lava, and fire frames. Also the sky, sun, moon, and biome color files. A partial biome file would wipe vanilla colors, and this script API cannot ask if it is raining.
+- Block wind on grass, flowers, leaves, kelp, and seagrass. Those blocks have no bones to animate.
 - Torch, door, ladder, and iron-bar textures. Those images are silhouettes, and a filled square would break the model.
 - FOV changes.
 - A copied vanilla player animation controller. Adding a second controller avoids dropping spear, crawl, and swim states the next time that file is compared.

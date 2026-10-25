@@ -2,7 +2,10 @@ import { system, world } from "@minecraft/server";
 import {
   AMBIENT_TICKS_FANCY,
   MOTION_TICKS,
+  STEP_DISTANCE,
+  WATER_DISTANCE,
   chooseAmbient,
+  footstepParticle,
   hurtShake,
   landingAction,
   stepSound,
@@ -64,15 +67,28 @@ world.afterEvents.playerBreakBlock.subscribe((event) => {
 world.afterEvents.entityHurt.subscribe((event) => {
   try {
     if (!effectsEnabled()) return;
-    const player = event.hurtEntity ?? event.entity;
-    if (!player || player.typeId !== "minecraft:player" || !player.isValid) return;
+    const victim = event.hurtEntity ?? event.entity;
+    if (!victim?.isValid) return;
     const damage = typeof event.damage === "number" ? event.damage : 1;
+    const attacker = event.damageSource?.damagingEntity;
+    const blocked = event.damageSource?.cause === "blocking";
+    let sparked = false;
+    if (attacker?.typeId === "minecraft:player" && attacker.isValid && attacker.id !== victim.id) {
+      if (!isSimpleGraphics(attacker)) {
+        burst(attacker, "realistic:spark", chest(victim));
+        sparked = true;
+      }
+    }
+    if (victim.typeId !== "minecraft:player") return;
+    if (blocked) {
+      if (!sparked && !isSimpleGraphics(victim)) burst(victim, "realistic:spark", chest(victim));
+      return;
+    }
     if (damage < 1) return;
     const spec = hurtShake(damage);
-    shake(player, spec.intensity, spec.duration, "rotational");
-    if (damage >= 2 && !isSimpleGraphics(player)) {
-      const loc = player.location;
-      burst(player, "realistic:spark", { x: loc.x, y: loc.y + 1.15, z: loc.z });
+    shake(victim, spec.intensity, spec.duration, "rotational");
+    if (!sparked && damage >= 2 && !isSimpleGraphics(victim)) {
+      burst(victim, "realistic:spark", chest(victim));
     }
   } catch (error) {
     report(error);
@@ -90,8 +106,21 @@ function tickMotion() {
       inWater: Boolean(player.isInWater),
       fallSpeed: 0,
       cooldown: 0,
+      x: player.location.x,
+      z: player.location.z,
+      travel: 0,
+      waterTravel: 0,
+      soundWait: 50,
     };
+    if (previous.x === undefined) {
+      previous.x = player.location.x;
+      previous.z = player.location.z;
+      previous.travel = 0;
+      previous.waterTravel = 0;
+      previous.soundWait = 50;
+    }
     if (previous.cooldown > 0) previous.cooldown -= MOTION_TICKS;
+    if (previous.soundWait > 0) previous.soundWait -= MOTION_TICKS;
 
     const physical = isPhysical(player);
     if (!physical) {
@@ -122,13 +151,47 @@ function tickMotion() {
     }
 
     const inWater = Boolean(player.isInWater);
-    if (inWater && previous.inWater === false && !isSimpleGraphics(player)) {
+    const simple = isSimpleGraphics(player);
+    if (inWater && previous.inWater === false && !simple) {
       const loc = player.location;
       burst(player, "realistic:splash", { x: loc.x, y: loc.y + 0.15, z: loc.z });
+    }
+    if (!inWater && previous.inWater === true && !simple) {
+      burst(player, "realistic:ripple", feet(player));
+    }
+
+    const moved = Math.hypot(player.location.x - previous.x, player.location.z - previous.z);
+    const speed = Math.hypot(velocity.x, velocity.z);
+    if (moved > 3) {
+      previous.travel = 0;
+      previous.waterTravel = 0;
+    } else if (inWater && speed > 0.04 && !player.isGliding) {
+      previous.waterTravel += moved;
+      if (previous.waterTravel >= WATER_DISTANCE) {
+        previous.waterTravel = 0;
+        if (!simple) {
+          const loc = player.location;
+          burst(player, "realistic:bubble", { x: loc.x, y: loc.y + 0.45, z: loc.z });
+          if (onGround) burst(player, "realistic:ripple", feet(player));
+        }
+      }
+      if (!simple && previous.soundWait <= 0) {
+        play(player, "realistic.drip", 0.12, 0.85 + Math.random() * 0.3);
+        previous.soundWait = 120;
+      }
+    } else if (onGround && physical && speed > 0.05) {
+      previous.travel += moved;
+      if (previous.travel >= STEP_DISTANCE) {
+        previous.travel = 0;
+        const effect = footstepParticle(groundId(player), speed);
+        if (effect) burst(player, effect, feet(player));
+      }
     }
 
     previous.onGround = onGround;
     previous.inWater = inWater;
+    previous.x = player.location.x;
+    previous.z = player.location.z;
     if (onGround) previous.fallSpeed = 0;
     motion.set(player.id, previous);
   }
@@ -139,6 +202,7 @@ function tickAmbient() {
   for (const player of world.getPlayers()) {
     if (!player.isValid) continue;
     const simple = isSimpleGraphics(player);
+    if (player.isInWater) continue;
     // The interval stays at the fancy rate so rain and caves can still appear
     // on the same clock. Simple graphics opts out inside chooseAmbient.
     if (simple && Math.random() > 0.35) continue;
@@ -158,6 +222,13 @@ function tickAmbient() {
     };
     if (!isAir(player, loc)) continue;
     burst(player, choice, loc);
+    if (choice === "realistic:leaf") {
+      const state = motion.get(player.id);
+      if (state && state.soundWait <= 0) {
+        play(player, "realistic.rustle", 0.16, 0.9 + Math.random() * 0.25);
+        state.soundWait = 100;
+      }
+    }
   }
 }
 
@@ -171,6 +242,11 @@ function effectsEnabled() {
 
 function feet(player) {
   return { x: player.location.x, y: player.location.y + 0.05, z: player.location.z };
+}
+
+function chest(entity) {
+  const loc = entity.location;
+  return { x: loc.x, y: loc.y + 1.05, z: loc.z };
 }
 
 function burst(player, effect, location) {

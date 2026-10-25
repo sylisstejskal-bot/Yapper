@@ -29,11 +29,11 @@
       },
       "minecraft:particle_motion_dynamic": {
         "linear_acceleration": [
-          0,
-          -0.8,
-          0
+          "Math.sin((variable.particle_age + variable.particle_random_1) * 160) * 0.45",
+          -0.55,
+          "Math.cos((variable.particle_age + variable.particle_random_1) * 120) * 0.35"
         ],
-        "linear_drag_coefficient": 0.35
+        "linear_drag_coefficient": 0.45
       },
       "minecraft:particle_appearance_billboard": {
         "size": [

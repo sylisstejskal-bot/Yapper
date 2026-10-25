@@ -4,6 +4,9 @@
 export const MOTION_TICKS = 2;
 export const AMBIENT_TICKS_FANCY = 40;
 export const AMBIENT_TICKS_SIMPLE = 90;
+export const STEP_DISTANCE = 0.85;
+export const WATER_DISTANCE = 1.15;
+export const SPRINT_CHIP_SPEED = 0.25;
 
 const SOFT_LAND = 0.62;
 const HARD_LAND = 0.85;
@@ -33,6 +36,34 @@ export function hurtShake(damage) {
     intensity: round(Math.min(0.48, 0.08 + amount * 0.06)),
     duration: round(Math.min(0.28, 0.1 + amount * 0.02)),
   };
+}
+
+// Distance along the ground, not a footstep event. Bedrock 2.6.0 does not
+// expose one. Null means this surface stays quiet.
+export function footstepParticle(blockId, speed) {
+  const id = String(blockId || "");
+  if (!id || id === "minecraft:air" || id === "minecraft:cave_air") return null;
+  if (id.includes("water") || id.includes("bubble_column")) return "realistic:ripple";
+  if (id.includes("snow") || id.includes("powder_snow")) return "realistic:flurry";
+  if (id.includes("sand") || id.includes("gravel")) return "realistic:sand";
+  if (
+    id.includes("grass") ||
+    id.includes("moss") ||
+    id.includes("podzol") ||
+    id.includes("mycelium")
+  ) {
+    return "realistic:clip";
+  }
+  if (id.includes("mud") || id.includes("dirt") || id.includes("farmland") || id.includes("clay")) {
+    return "realistic:dust";
+  }
+  if (
+    speed >= SPRINT_CHIP_SPEED &&
+    /stone|deepslate|tuff|andesite|diorite|granite|blackstone|basalt|obsidian|netherrack/.test(id)
+  ) {
+    return "realistic:chip";
+  }
+  return null;
 }
 
 export function stepSound(blockId) {
@@ -72,8 +103,13 @@ export function chooseAmbient(info) {
     return simple ? null : "realistic:dust";
   }
   if (simple) return null;
-  if (/desert|beach|badlands/.test(biomeId)) return "realistic:sand";
-  if (/forest|taiga|jungle|swamp|grove|cherry|pale_garden|mangrove|meadow/.test(biomeId)) {
+  const biome = biomeId.split(":").pop() || "";
+  if (/snow|frozen|ice_spikes|jagged_peaks|frozen_peaks|(^|_)grove($|_)/.test(biome)) {
+    return "realistic:snow";
+  }
+  if (/swamp|mangrove/.test(biome)) return "realistic:mist";
+  if (/desert|beach|badlands/.test(biome)) return "realistic:sand";
+  if (/forest|taiga|jungle|cherry|pale_garden|meadow/.test(biome)) {
     return "realistic:leaf";
   }
   return "realistic:mote";

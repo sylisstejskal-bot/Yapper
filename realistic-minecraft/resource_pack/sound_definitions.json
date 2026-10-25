@@ -1,0 +1,31 @@
+{
+  "format_version": "1.14.0",
+  "sound_definitions": {
+    "realistic.rustle": {
+      "category": "ambient",
+      "min_distance": 1.0,
+      "max_distance": 10.0,
+      "sounds": [
+        {
+          "name": "sounds/realistic/rustle",
+          "volume": 0.45,
+          "pitch": 1.0,
+          "load_on_low_memory": true
+        }
+      ]
+    },
+    "realistic.drip": {
+      "category": "ambient",
+      "min_distance": 1.0,
+      "max_distance": 8.0,
+      "sounds": [
+        {
+          "name": "sounds/realistic/drip",
+          "volume": 0.35,
+          "pitch": 1.0,
+          "load_on_low_memory": true
+        }
+      ]
+    }
+  }
+}
