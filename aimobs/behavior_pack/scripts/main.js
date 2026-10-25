@@ -1,4 +1,4 @@
-import { world, system, ItemStack, EntityDamageCause } from "@minecraft/server";
+import { world, system, ItemStack, EntityDamageCause, EquipmentSlot } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { plan } from "./mind.js";
 import { nearestMobs, possess, SCAN_RANGE } from "./control.js";
@@ -7,18 +7,42 @@ const REMOTE = "aimobs:remote";
 const TAG = "aimobs_possessed";
 const busy = new Set();
 const pending = new Set();
+const told = new Set();
 const chestCache = new Map();
 const waterCache = new Map();
+const USE_HINT = "Hold Use on the AI Mobs item to open the menu.";
 
 system.beforeEvents.startup.subscribe((event) => {
   event.itemComponentRegistry.registerCustomComponent("aimobs:open", {
     onUse(useEvent) {
       queueMenu(useEvent.source);
     },
+    onUseOn(useEvent) {
+      queueMenu(useEvent.source);
+    },
     onCompleteUse(useEvent) {
       queueMenu(useEvent.source);
     },
+    onConsume(useEvent) {
+      const player = useEvent.source;
+      queueMenu(player);
+      system.run(() => {
+        if (player?.isValid()) giveRemote(player);
+      });
+    },
   });
+});
+
+world.beforeEvents.itemUse.subscribe((event) => {
+  if (event.itemStack?.typeId !== REMOTE) return;
+  event.cancel = true;
+  const player = event.source;
+  system.run(() => queueMenu(player));
+});
+
+world.afterEvents.itemStartUse.subscribe((event) => {
+  if (event.itemStack?.typeId !== REMOTE) return;
+  queueMenu(event.source);
 });
 
 world.afterEvents.itemUse.subscribe((event) => {
@@ -40,6 +64,7 @@ world.afterEvents.entityLoad.subscribe((event) => {
 system.runInterval(() => {
   const seen = new Set();
   for (const player of world.getPlayers()) {
+    remindUse(player);
     let mobs = [];
     try {
       mobs = player.dimension.getEntities({
@@ -70,7 +95,7 @@ function giveRemote(player) {
       player.sendMessage("The AI Mobs item could not be added. Take it from the creative inventory.");
       return;
     }
-    player.sendMessage("Press the AI Mobs item to open the menu.");
+    player.sendMessage(USE_HINT);
   } catch {
     player.sendMessage("The AI Mobs item could not be added. Take it from the creative inventory.");
   }
@@ -80,10 +105,10 @@ function queueMenu(player) {
   if (!player || player.typeId !== "minecraft:player") return;
   if (pending.has(player.id) || busy.has(player.id)) return;
   pending.add(player.id);
-  system.run(() => {
+  system.runTimeout(() => {
     pending.delete(player.id);
     openMenu(player);
-  });
+  }, 5);
 }
 
 async function openMenu(player) {
@@ -478,11 +503,33 @@ function hash(value) {
   return total;
 }
 
-async function show(player, form) {
+function remindUse(player) {
+  if (!player.isValid() || told.has(player.id) || !holdingRemote(player)) return;
+  told.add(player.id);
+  player.sendMessage(USE_HINT);
+}
+
+function holdingRemote(player) {
   try {
-    return await form.show(player);
+    return player.getComponent("minecraft:equippable")?.getEquipment(EquipmentSlot.Mainhand)?.typeId === REMOTE;
   } catch {
-    if (player.isValid()) player.sendMessage("Close any other screen, then press AI Mobs again.");
-    return null;
+    return false;
   }
+}
+
+function later(ticks) {
+  return new Promise((resolve) => system.runTimeout(resolve, ticks));
+}
+
+async function show(player, form) {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (!player.isValid()) return null;
+    try {
+      return await form.show(player);
+    } catch {
+      await later(4);
+    }
+  }
+  if (player.isValid()) player.sendMessage("Close any other screen, then hold Use on AI Mobs again.");
+  return null;
 }

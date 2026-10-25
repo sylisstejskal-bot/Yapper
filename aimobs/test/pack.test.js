@@ -25,7 +25,9 @@ test("the AI Mobs item is a one-press custom component", async () => {
   const components = item["minecraft:item"].components;
   assert.equal(item["minecraft:item"].description.identifier, "aimobs:remote");
   assert.equal(components["minecraft:max_stack_size"], 1);
-  assert.equal(components["minecraft:use_modifiers"].use_duration, 0);
+  assert.equal(components["minecraft:use_modifiers"].use_duration, 0.1);
+  assert.equal(components["minecraft:food"].can_always_eat, true);
+  assert.equal(components["minecraft:food"].using_converts_to, "aimobs:remote");
   assert.deepEqual(components["aimobs:open"], {});
   assert.equal(components["minecraft:icon"].textures.default, "aimobs_remote");
   const atlas = await readJson("resource_pack/textures/item_texture.json");
