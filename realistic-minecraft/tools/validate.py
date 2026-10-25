@@ -116,9 +116,11 @@ def check_player() -> None:
         if state not in states:
             fail(f"motion controller is missing {state}")
     pre_animation = "\n".join(description["scripts"]["pre_animation"])
-    for token in ("variable.rm_stride", "variable.rm_leg_l", "variable.rm_landing", "variable.tcos0"):
+    for token in ("variable.gliding_speed_value", "variable.tcos0", "variable.rm_live", "variable.rm_sprint", "query.is_sprinting"):
         if token not in pre_animation:
             fail(f"player pre_animation is missing {token}")
+    if pre_animation.find("variable.gliding_speed_value =") > pre_animation.find("variable.tcos0"):
+        fail("gliding_speed_value must be set before tcos0 divides by it")
     if description["scripts"]["animate"] != ["root", "realistic_motion"]:
         fail("player animate list must stay root, then realistic_motion")
     grounded = {"root", "waist", "body", "leftleg", "rightleg", "leftarm", "rightarm"}
@@ -130,9 +132,21 @@ def check_player() -> None:
                 continue
             if bone.lower() in grounded:
                 fail(f"{animation_name} moves {bone}, which lifts or sinks the player")
-    leg_rotation = json.dumps(animations["animations"]["animation.player.move.legs"])
-    if "variable.rm_leg_l" not in leg_rotation or "variable.rm_leg_r" not in leg_rotation:
-        fail("walk cycle must drive both legs from the smoothed stride")
+    legs = animations["animations"]["animation.player.move.legs"]["bones"]
+    arms = animations["animations"]["animation.player.move.arms"]["bones"]
+    leg_rotation = json.dumps(legs)
+    arm_rotation = json.dumps(arms)
+    for token in ("query.modified_distance_moved", "query.position_delta", "query.is_sprinting", "math.cos"):
+        if token not in leg_rotation or token not in arm_rotation:
+            fail(f"walk cycle is missing {token}")
+    if "math.lerp(-38.0, -62.0" not in leg_rotation or "math.lerp(38.0, 62.0" not in leg_rotation:
+        fail("left and right legs must swing in opposite directions")
+    if "math.lerp(34.0, 56.0" not in arm_rotation or "math.lerp(-34.0, -56.0" not in arm_rotation:
+        fail("arms must swing opposite the same-side leg")
+    if names.get("root") != "controller.animation.player.root":
+        fail("vanilla player root controller must stay registered")
+    if names.get("move.legs") != "animation.player.move.legs" or names.get("move.arms") != "animation.player.move.arms":
+        fail("root plays move.legs and move.arms; those identifiers must stay mapped")
     land_bones = animations["animations"]["animation.realistic.player.land"]["bones"]
     if set(land_bones) != {"waist"}:
         fail("landing may only pitch the waist")

@@ -41,7 +41,7 @@ Cheats can stay off. The effects start with the behavior pack.
 Try these in order:
 
 1. Look at grass, wood, stone, and ore. Textures are 32×32, so edges are clearer than vanilla and the style still matches across blocks.
-2. Tap the perspective button until you see your body. Stand still: the feet stay on the ground and the limbs rest. Walk, then stop. The legs and opposite arms swing, then ease back to rest. Sprint swings a little farther and the waist leans from the hips.
+2. Tap the perspective button until you see your body. Third person is required; first person does not draw the legs. Stand still and the limbs rest. Walk: the legs alternate and the opposite arm swings with each step. Stop and the swing eases off. Sprint: the steps get quicker, the arms swing wider, and the waist leans forward.
 3. Jump. The arms trail, then lift, and the legs move into a rising pose. Falling is a different pose. Landing eases back to standing without dropping the body into the ground. First person only nudges the hand. Bedrock does not draw your legs there.
 4. Walk off a one-block step. You get no shake.
 5. Drop about four blocks. You get a dust burst and a short camera shake.

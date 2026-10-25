@@ -8,18 +8,18 @@
           "blend_transition": 0.16,
           "animations": [
             {
-              "realistic_breathe": "!query.is_sleeping && !query.is_swimming && !query.is_gliding && query.modified_move_speed < 0.08 ? 1.0 : 0.0"
+              "realistic_breathe": "!query.is_sleeping && !query.is_swimming && !query.is_gliding && variable.rm_live < 0.08 ? 1.0 : 0.0"
             },
             {
-              "realistic_lean": "variable.rm_move && !query.is_sneaking && query.is_on_ground ? math.clamp(query.modified_move_speed, 0.0, 1.0) : 0.0"
+              "realistic_lean": "!query.is_sneaking && !query.is_riding && !query.is_swimming && !query.is_crawling && !query.is_gliding && !query.is_sleeping && query.is_on_ground ? variable.rm_live : 0.0"
             }
           ],
           "transitions": [
             {
-              "jump": "!query.is_on_ground && query.position_delta(1) > 0.0 && variable.rm_move"
+              "jump": "!query.is_on_ground && query.position_delta(1) > 0.0 && !query.is_gliding && !query.is_riding && !query.is_sleeping && !query.is_swimming && !query.is_crawling"
             },
             {
-              "fall": "!query.is_on_ground && query.position_delta(1) <= 0.0 && variable.rm_move"
+              "fall": "!query.is_on_ground && query.position_delta(1) <= 0.0 && !query.is_gliding && !query.is_riding && !query.is_sleeping && !query.is_swimming && !query.is_crawling"
             }
           ]
         },
@@ -31,10 +31,10 @@
               "fall": "query.position_delta(1) <= 0.0 && !query.is_on_ground"
             },
             {
-              "land": "query.is_on_ground && variable.rm_landing > 0.5"
+              "land": "query.is_on_ground && variable.rm_land > 0.5"
             },
             {
-              "ground": "query.is_on_ground || !variable.rm_move"
+              "ground": "query.is_on_ground || query.is_gliding || query.is_riding || query.is_swimming || query.is_sleeping || query.is_crawling"
             }
           ]
         },
@@ -43,13 +43,13 @@
           "animations": ["realistic_fall"],
           "transitions": [
             {
-              "land": "query.is_on_ground && variable.rm_landing > 0.5"
+              "land": "query.is_on_ground && variable.rm_land > 0.5"
             },
             {
-              "jump": "query.position_delta(1) > 0.02 && !query.is_on_ground && variable.rm_move"
+              "jump": "query.position_delta(1) > 0.02 && !query.is_on_ground && !query.is_gliding && !query.is_riding && !query.is_swimming"
             },
             {
-              "ground": "query.is_on_ground || !variable.rm_move"
+              "ground": "query.is_on_ground || query.is_gliding || query.is_riding || query.is_swimming || query.is_sleeping || query.is_crawling"
             }
           ]
         },
@@ -58,10 +58,10 @@
           "animations": ["realistic_land"],
           "transitions": [
             {
-              "fall": "!query.is_on_ground && variable.rm_move"
+              "fall": "!query.is_on_ground && !query.is_gliding && !query.is_riding && !query.is_swimming"
             },
             {
-              "ground": "query.all_animations_finished || query.modified_move_speed > 0.08 || !variable.rm_move"
+              "ground": "query.all_animations_finished || variable.rm_live > 0.2 || query.is_gliding || query.is_riding || query.is_swimming || query.is_sleeping"
             }
           ]
         }
