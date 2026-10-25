@@ -1,0 +1,13 @@
+{
+  "format_version": "1.21.30",
+  "minecraft:texture_set": {
+    "color": "dripstone_block",
+    "heightmap": "dripstone_block_h",
+    "metalness_emissive_roughness_subsurface": [
+      0,
+      0,
+      200,
+      0
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "format_version": "1.21.30",
+  "minecraft:texture_set": {
+    "color": "crafting_table_top",
+    "heightmap": "crafting_table_top_h",
+    "metalness_emissive_roughness_subsurface": [
+      0,
+      0,
+      176,
+      0
+    ]
+  }
+}

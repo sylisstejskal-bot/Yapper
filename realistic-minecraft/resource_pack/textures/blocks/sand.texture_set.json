@@ -1,0 +1,13 @@
+{
+  "format_version": "1.21.30",
+  "minecraft:texture_set": {
+    "color": "sand",
+    "heightmap": "sand_h",
+    "metalness_emissive_roughness_subsurface": [
+      0,
+      0,
+      236,
+      0
+    ]
+  }
+}

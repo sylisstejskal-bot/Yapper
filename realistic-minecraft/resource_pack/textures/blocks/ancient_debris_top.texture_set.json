@@ -1,0 +1,13 @@
+{
+  "format_version": "1.21.30",
+  "minecraft:texture_set": {
+    "color": "ancient_debris_top",
+    "heightmap": "ancient_debris_top_h",
+    "metalness_emissive_roughness_subsurface": [
+      60,
+      0,
+      120,
+      0
+    ]
+  }
+}

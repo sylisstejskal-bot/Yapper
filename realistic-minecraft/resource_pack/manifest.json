@@ -1,0 +1,18 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Realistic Minecraft",
+    "description": "32x32 blocks and items, softer player motion, and a darker HUD. Works with the Realistic Minecraft behavior pack.",
+    "uuid": "cd02cbfd-373b-4365-b17c-95839de81131",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 0]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "1a085d15-30f7-477c-ab9e-9f7587215313",
+      "version": [1, 0, 0]
+    }
+  ],
+  "capabilities": ["pbr"]
+}

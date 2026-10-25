@@ -1,0 +1,74 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.realistic.player.motion": {
+      "initial_state": "ground",
+      "states": {
+        "ground": {
+          "blend_transition": 0.12,
+          "animations": [
+            {
+              "realistic_breathe": "!query.is_sleeping && query.modified_move_speed < 0.2 ? 1.0 : 0.0"
+            },
+            {
+              "realistic_lean": "!query.is_sneaking && !query.is_riding && !query.is_crawling && !query.is_sleeping && !query.is_gliding ? math.clamp(query.modified_move_speed, 0.0, 1.0) : 0.0"
+            }
+          ],
+          "transitions": [
+            {
+              "jump": "!query.is_on_ground && query.position_delta(1) > 0.0 && !query.is_gliding && !query.is_riding && !query.is_sleeping && !query.is_swimming && !query.is_crawling"
+            },
+            {
+              "fall": "!query.is_on_ground && query.position_delta(1) <= 0.0 && !query.is_gliding && !query.is_riding && !query.is_sleeping && !query.is_swimming && !query.is_crawling"
+            }
+          ]
+        },
+        "jump": {
+          "blend_transition": 0.08,
+          "animations": ["realistic_jump"],
+          "transitions": [
+            {
+              "fall": "query.position_delta(1) <= 0.0 && !query.is_on_ground"
+            },
+            {
+              "land": "query.is_on_ground"
+            },
+            {
+              "ground": "query.is_gliding || query.is_riding || query.is_swimming || query.is_sleeping"
+            }
+          ]
+        },
+        "fall": {
+          "blend_transition": 0.1,
+          "animations": ["realistic_fall"],
+          "transitions": [
+            {
+              "land": "query.is_on_ground"
+            },
+            {
+              "jump": "query.position_delta(1) > 0.02 && !query.is_on_ground"
+            },
+            {
+              "ground": "query.is_gliding || query.is_riding || query.is_swimming || query.is_sleeping"
+            }
+          ]
+        },
+        "land": {
+          "blend_transition": 0.05,
+          "animations": ["realistic_land"],
+          "transitions": [
+            {
+              "ground": "query.all_animations_finished || query.modified_move_speed > 0.08"
+            },
+            {
+              "fall": "!query.is_on_ground && !query.is_gliding && !query.is_riding && !query.is_swimming"
+            },
+            {
+              "ground": "query.is_gliding || query.is_riding || query.is_swimming || query.is_sleeping"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
