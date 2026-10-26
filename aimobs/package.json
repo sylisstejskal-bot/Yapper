@@ -1,0 +1,8 @@
+{
+  "name": "aimobs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --check behavior_pack/scripts/main.js && node --check behavior_pack/scripts/mind.js && node --check behavior_pack/scripts/control.js && node --test test/mind.test.js test/pack.test.js"
+  }
+}

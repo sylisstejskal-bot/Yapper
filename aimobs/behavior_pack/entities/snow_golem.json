@@ -1,0 +1,143 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "minecraft:snow_golem",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": [
+          "mob",
+          "aimobs",
+          "snow_golem"
+        ]
+      },
+      "minecraft:health": {
+        "value": 4,
+        "max": 4
+      },
+      "minecraft:collision_box": {
+        "width": 0.7,
+        "height": 1.9
+      },
+      "minecraft:movement": {
+        "value": 0.22
+      },
+      "minecraft:physics": {
+        "has_collision": true,
+        "has_gravity": true
+      },
+      "minecraft:pushable": {
+        "is_pushable": true,
+        "is_pushable_by_piston": true
+      },
+      "minecraft:nameable": {},
+      "minecraft:experience_reward": {
+        "on_death": "query.last_hit_by_player ? 5 : 0"
+      },
+      "minecraft:timer": {
+        "looping": false,
+        "time": 0.05,
+        "time_down_event": {
+          "event": "aimobs:ensure_brain",
+          "target": "self"
+        }
+      },
+      "minecraft:movement.basic": {},
+      "minecraft:navigation.walk": {
+        "can_path_over_water": true,
+        "avoid_water": true,
+        "avoid_damage_blocks": true
+      },
+      "minecraft:jump.static": {},
+      "minecraft:breathable": {
+        "total_supply": 15,
+        "suffocate_time": 0
+      }
+    },
+    "component_groups": {
+      "aimobs:own_brain": {
+        "minecraft:behavior.float": {
+          "priority": 0
+        },
+        "minecraft:behavior.random_stroll": {
+          "priority": 6,
+          "speed_multiplier": 1,
+          "xz_dist": 8,
+          "y_dist": 2
+        },
+        "minecraft:behavior.look_at_player": {
+          "priority": 7,
+          "look_distance": 8
+        },
+        "minecraft:behavior.random_look_around": {
+          "priority": 8
+        },
+        "minecraft:behavior.panic": {
+          "priority": 1,
+          "speed_multiplier": 1.25
+        }
+      },
+      "aimobs:local_mind": {
+        "minecraft:behavior.float": {
+          "priority": 0
+        }
+      }
+    },
+    "events": {
+      "minecraft:entity_spawned": {
+        "filters": {
+          "test": "has_tag",
+          "subject": "self",
+          "operator": "not",
+          "value": "aimobs_possessed"
+        },
+        "add": {
+          "component_groups": [
+            "aimobs:own_brain"
+          ]
+        }
+      },
+      "aimobs:ensure_brain": {
+        "filters": {
+          "test": "has_tag",
+          "subject": "self",
+          "operator": "not",
+          "value": "aimobs_possessed"
+        },
+        "add": {
+          "component_groups": [
+            "aimobs:own_brain"
+          ]
+        }
+      },
+      "aimobs:possess": {
+        "remove": {
+          "component_groups": [
+            "aimobs:own_brain"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "aimobs:local_mind"
+          ]
+        }
+      },
+      "aimobs:release": {
+        "remove": {
+          "component_groups": [
+            "aimobs:local_mind"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "aimobs:own_brain"
+          ]
+        }
+      }
+    }
+  }
+}
