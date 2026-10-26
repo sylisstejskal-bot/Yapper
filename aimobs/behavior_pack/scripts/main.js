@@ -1,58 +1,79 @@
 import { world, system, ItemStack, EntityDamageCause, EquipmentSlot } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { plan } from "./mind.js";
-import { nearestMobs, possess, SCAN_RANGE } from "./control.js";
+import { holdTransition, nearestMobs, possess, SCAN_RANGE } from "./control.js";
 
 const REMOTE = "aimobs:remote";
 const TAG = "aimobs_possessed";
 const busy = new Set();
 const pending = new Set();
 const told = new Set();
+const wasHolding = new Set();
 const chestCache = new Map();
 const waterCache = new Map();
-const USE_HINT = "Hold Use on the AI Mobs item to open the menu.";
+const bootErrors = [];
+const USE_HINT = "Select the AI Mobs item to open the menu.";
 
-system.beforeEvents.startup.subscribe((event) => {
-  event.itemComponentRegistry.registerCustomComponent("aimobs:open", {
-    onUse(useEvent) {
-      queueMenu(useEvent.source);
-    },
-    onUseOn(useEvent) {
-      queueMenu(useEvent.source);
-    },
-    onCompleteUse(useEvent) {
-      queueMenu(useEvent.source);
-    },
-    onConsume(useEvent) {
-      const player = useEvent.source;
-      queueMenu(player);
-      system.run(() => {
-        if (player?.isValid()) giveRemote(player);
-      });
-    },
+function listen(label, subscribe) {
+  try {
+    subscribe();
+  } catch (error) {
+    bootErrors.push(`${label}: ${error}`);
+  }
+}
+
+listen("startup", () => {
+  system.beforeEvents.startup.subscribe((event) => {
+    event.itemComponentRegistry.registerCustomComponent("aimobs:open", {
+      onUse(useEvent) {
+        queueMenu(useEvent.source);
+      },
+      onUseOn(useEvent) {
+        queueMenu(useEvent.source);
+      },
+      onCompleteUse(useEvent) {
+        queueMenu(useEvent.source);
+      },
+      onConsume(useEvent) {
+        const player = useEvent.source;
+        queueMenu(player);
+        system.run(() => {
+          if (player?.isValid()) giveRemote(player);
+        });
+      },
+    });
   });
 });
 
-world.beforeEvents.itemUse.subscribe((event) => {
-  if (event.itemStack?.typeId !== REMOTE) return;
-  event.cancel = true;
-  const player = event.source;
-  system.run(() => queueMenu(player));
+listen("itemStartUse", () => {
+  world.afterEvents.itemStartUse.subscribe((event) => {
+    if (event.itemStack?.typeId !== REMOTE) return;
+    queueMenu(event.source);
+  });
 });
 
-world.afterEvents.itemStartUse.subscribe((event) => {
-  if (event.itemStack?.typeId !== REMOTE) return;
-  queueMenu(event.source);
+listen("itemUse", () => {
+  world.afterEvents.itemUse.subscribe((event) => {
+    if (event.itemStack?.typeId !== REMOTE) return;
+    queueMenu(event.source);
+  });
 });
 
-world.afterEvents.itemUse.subscribe((event) => {
-  if (event.itemStack?.typeId !== REMOTE) return;
-  queueMenu(event.source);
+listen("playerSpawn", () => {
+  world.afterEvents.playerSpawn.subscribe((event) => {
+    system.run(() => {
+      const player = event.player;
+      if (!player.isValid()) return;
+      giveRemote(player);
+      if (event.initialSpawn) {
+        told.add(player.id);
+        player.sendMessage(USE_HINT);
+      }
+    });
+  });
 });
 
-world.afterEvents.playerSpawn.subscribe((event) => {
-  system.run(() => giveRemote(event.player));
-});
+console.warn("AI Mobs script loaded");
 
 world.afterEvents.entityLoad.subscribe((event) => {
   const entity = event.entity;
@@ -64,7 +85,7 @@ world.afterEvents.entityLoad.subscribe((event) => {
 system.runInterval(() => {
   const seen = new Set();
   for (const player of world.getPlayers()) {
-    remindUse(player);
+    watchHold(player);
     let mobs = [];
     try {
       mobs = player.dimension.getEntities({
@@ -91,13 +112,27 @@ function giveRemote(player) {
       if (container.getItem(slot)?.typeId === REMOTE) return;
     }
     const leftover = container.addItem(new ItemStack(REMOTE, 1));
-    if (leftover) {
-      player.sendMessage("The AI Mobs item could not be added. Take it from the creative inventory.");
-      return;
-    }
-    player.sendMessage(USE_HINT);
+    if (leftover) player.sendMessage("The AI Mobs item could not be added. Take it from the creative inventory.");
   } catch {
     player.sendMessage("The AI Mobs item could not be added. Take it from the creative inventory.");
+  }
+}
+
+function watchHold(player) {
+  if (!player.isValid()) return;
+  let holding = false;
+  try {
+    holding = holdingRemote(player);
+  } catch {
+    return;
+  }
+  if (holdTransition(wasHolding.has(player.id), holding)) queueMenu(player);
+  if (holding) wasHolding.add(player.id);
+  else wasHolding.delete(player.id);
+  if (holding && !told.has(player.id)) {
+    told.add(player.id);
+    player.sendMessage(USE_HINT);
+    if (bootErrors.length) player.sendMessage(`AI Mobs script warning: ${bootErrors[0]}`);
   }
 }
 
@@ -108,7 +143,7 @@ function queueMenu(player) {
   system.runTimeout(() => {
     pending.delete(player.id);
     openMenu(player);
-  }, 5);
+  }, 20);
 }
 
 async function openMenu(player) {
@@ -503,12 +538,6 @@ function hash(value) {
   return total;
 }
 
-function remindUse(player) {
-  if (!player.isValid() || told.has(player.id) || !holdingRemote(player)) return;
-  told.add(player.id);
-  player.sendMessage(USE_HINT);
-}
-
 function holdingRemote(player) {
   try {
     return player.getComponent("minecraft:equippable")?.getEquipment(EquipmentSlot.Mainhand)?.typeId === REMOTE;
@@ -530,6 +559,6 @@ async function show(player, form) {
       await later(4);
     }
   }
-  if (player.isValid()) player.sendMessage("Close any other screen, then hold Use on AI Mobs again.");
+  if (player.isValid()) player.sendMessage("Close any other screen, then select the AI Mobs item again.");
   return null;
 }

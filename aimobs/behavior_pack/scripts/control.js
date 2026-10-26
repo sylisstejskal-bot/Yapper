@@ -33,3 +33,7 @@ export function nearestMobs(entries, limit = NEAREST_LIMIT) {
 export function vanillaBrainShouldRun(possessed) {
   return !possessed;
 }
+
+export function holdTransition(wasHolding, holding) {
+  return holding && !wasHolding;
+}

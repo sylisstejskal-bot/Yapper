@@ -16,7 +16,8 @@ test("manifests point at the stable script modules and each other", async () => 
   assert.equal(script.entry, "scripts/main.js");
   assert.equal(behavior.dependencies.find((dep) => dep.module_name === "@minecraft/server").version, "2.10.0");
   assert.equal(behavior.dependencies.find((dep) => dep.module_name === "@minecraft/server-ui").version, "2.2.0");
-  assert.equal(behavior.dependencies.find((dep) => dep.uuid).uuid, resources.header.uuid);
+  assert.equal(behavior.dependencies.some((dep) => dep.uuid), false);
+  assert.equal(resources.header.uuid, "9c3d4e5f-6071-4283-894a-5b6c7d8e9f01");
   assert.deepEqual(behavior.header.min_engine_version, [1, 26, 0]);
 });
 

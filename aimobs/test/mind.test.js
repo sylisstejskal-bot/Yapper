@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { possess, release, tickBrain, nearestMobs, vanillaBrainShouldRun } from "../behavior_pack/scripts/control.js";
+import { possess, release, tickBrain, nearestMobs, vanillaBrainShouldRun, holdTransition } from "../behavior_pack/scripts/control.js";
 
 const playerNear = {
   playerKnown: true,
@@ -78,6 +78,13 @@ test("blank personality is refused", () => {
   const refused = possess("   ");
   assert.equal(refused.ok, false);
   assert.match(refused.reason, /personality/i);
+});
+
+test("selecting the AI Mobs item opens the menu once", () => {
+  assert.equal(holdTransition(false, true), true);
+  assert.equal(holdTransition(true, true), false);
+  assert.equal(holdTransition(true, false), false);
+  assert.equal(holdTransition(false, false), false);
 });
 
 test("nearest mobs are the closest ones, capped", () => {
