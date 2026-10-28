@@ -50,7 +50,7 @@ Replace `LOCAL_AI_SERVER_PLACEHOLDER_HERE` with that computer's address, includi
 /connect to YOUR_COHERE_API_KEY
 ```
 
-Replace `YOUR_COHERE_API_KEY` with your key. Do not leave the placeholder in the command. The key is not printed back to chat.
+Replace `YOUR_COHERE_API_KEY` with your key. Do not leave the placeholder in the command. The key is not printed back to chat. If Cohere closes the connection, Obesity tries its other chat address before asking you to check that the key is active.
 
 If Minecraft says the slash command is unknown, type the same words with no slash. Stand near Obesity and talk in normal chat.
 

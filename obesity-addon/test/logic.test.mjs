@@ -16,6 +16,8 @@ import {
   boxSpots,
   clipReply,
   cohereRequest,
+  cohereV1Request,
+  failureKind,
   connectFeedback,
   hungerDisplay,
   hungriest,
@@ -148,7 +150,22 @@ test("AI requests use the supplied connection and read the replies", () => {
   assert.equal(request.url, "https://api.cohere.com/v2/chat");
   assert.equal(request.body.stream, false);
   assert.equal(request.headers[1][1], "Bearer test-key");
+  assert.equal(request.headers.some((header) => header[0] === "Accept"), true);
   assert.equal(JSON.stringify(request).includes(COHERE_PLACEHOLDER), false);
+  const older = cohereV1Request("test-key", [
+    { role: "user", content: "hi" },
+    { role: "assistant", content: "hello" },
+    { role: "user", content: "hungry?" },
+  ]);
+  assert.equal(older.url, "https://api.cohere.com/v1/chat");
+  assert.equal(older.body.message, "hungry?");
+  assert.equal(older.body.stream, false);
+  assert.deepEqual(older.body.chat_history, [
+    { role: "USER", message: "hi" },
+    { role: "CHATBOT", message: "hello" },
+  ]);
+  assert.equal(failureKind(0, "Connection closed"), "closed");
+  assert.equal(failureKind(401, ""), "denied");
   assert.equal(readCohereReply(JSON.stringify({ message: { content: [{ type: "text", text: "feed me" }] } })), "feed me");
 
   const ollama = ollamaChatRequest("http://ollama.local:11434", "llama3.2", [{ role: "user", content: "hi" }]);

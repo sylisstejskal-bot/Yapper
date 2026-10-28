@@ -330,8 +330,13 @@ function talkFailure(player, result) {
     player.sendMessage("§7Host the world on a Bedrock dedicated server and allow network scripts, then talk again.");
     return;
   }
-  if (result.reason === "http" && result.status === 401) {
-    player.sendMessage("§cCohere refused that key. Create a new one and run /connect to your key.");
+  if (result.reason === "denied" || result.status === 401 || result.status === 403) {
+    player.sendMessage("§cCohere refused that key. Create a new one at cohere.com and run /connect to your key.");
+    return;
+  }
+  if (result.reason === "closed") {
+    player.sendMessage("§cCohere closed the connection before Obesity got an answer.");
+    player.sendMessage("§7Obesity tried both chat addresses. Check that the key is active, run /connect to your key again, then talk.");
     return;
   }
   if (result.reason === "http") {

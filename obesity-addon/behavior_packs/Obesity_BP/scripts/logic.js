@@ -317,13 +317,18 @@ export function systemPrompt(hunger) {
   return `${base} Your hunger is ${hunger} out of 20.`;
 }
 
+function cohereHeaders(key) {
+  return [
+    ["Content-Type", "application/json"],
+    ["Authorization", `Bearer ${key}`],
+    ["Accept", "application/json"],
+  ];
+}
+
 export function cohereRequest(key, turns, hunger) {
   return {
     url: "https://api.cohere.com/v2/chat",
-    headers: [
-      ["Content-Type", "application/json"],
-      ["Authorization", `Bearer ${key}`],
-    ],
+    headers: cohereHeaders(key),
     body: {
       model: COHERE_MODEL,
       stream: false,
@@ -331,6 +336,44 @@ export function cohereRequest(key, turns, hunger) {
       messages: [{ role: "system", content: systemPrompt(hunger) }, ...turns],
     },
   };
+}
+
+export function cohereV1Request(key, turns, hunger) {
+  const chatHistory = [];
+  let message = "";
+  for (const turn of turns || []) {
+    if (!turn || typeof turn.content !== "string") continue;
+    if (turn.role === "assistant") {
+      if (message) {
+        chatHistory.push({ role: "USER", message });
+        message = "";
+      }
+      chatHistory.push({ role: "CHATBOT", message: turn.content });
+      continue;
+    }
+    if (message) chatHistory.push({ role: "USER", message });
+    message = turn.content;
+  }
+  return {
+    url: "https://api.cohere.com/v1/chat",
+    headers: cohereHeaders(key),
+    body: {
+      model: COHERE_MODEL,
+      message,
+      chat_history: chatHistory,
+      preamble: systemPrompt(hunger),
+      stream: false,
+      max_tokens: 80,
+    },
+  };
+}
+
+export function failureKind(status, errorText) {
+  if (status === 401 || status === 403) return "denied";
+  const text = String(errorText || "");
+  if (status === 0 || /connection closed|econnreset|socket hang up|timed out|timeout/i.test(text)) return "closed";
+  if (status) return "http";
+  return "failed";
 }
 
 export function ollamaTagsUrl(server) {
