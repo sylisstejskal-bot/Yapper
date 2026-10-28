@@ -12,7 +12,6 @@ import {
   connectFeedback,
   connectPhrase,
   crossedWarning,
-  localReply,
   nameTagLine,
   distanceSquared,
   drainHunger,
@@ -437,34 +436,71 @@ function rememberTurn(player, userText, reply) {
   talkHistory.set(player.id, history);
 }
 
-function hearChat(player, text) {
-  const pet = ownedPet(player);
-  if (!pet) {
-    showNotice(player, ["Open the box, then tap Obesity or type in chat."]);
+function savedAi(player) {
+  let kind;
+  let secret;
+  try {
+    kind = player.getDynamicProperty("obesity:ai_kind");
+    secret = player.getDynamicProperty("obesity:ai_secret");
+  } catch (error) {
+    return undefined;
+  }
+  if ((kind !== "cohere" && kind !== "local") || typeof secret !== "string" || !secret) return undefined;
+  return { kind, secret };
+}
+
+function aiMissed(player) {
+  if (toldOffline.has(player.id)) {
+    showNotice(player, ["The AI did not answer."]);
     return;
   }
+  toldOffline.add(player.id);
+  showNotice(player, [
+    "The AI did not answer from this world.",
+    "Obesity will not fill in a pre-made line.",
+  ]);
+}
+
+function requestSpeech(player, entity, text) {
+  const saved = savedAi(player);
+  if (!saved) {
+    showNotice(player, [
+      "Obesity is not connected to an AI.",
+      "/obesity:connect to YOUR_COHERE_API_KEY",
+    ]);
+    return;
+  }
+  if (talkBusy.has(player.id)) {
+    showNotice(player, ["Obesity is still asking the AI."]);
+    return;
+  }
+  if (entity) {
+    try {
+      entity.nameTag = "§eObesity: ...";
+      speechUntil.set(entity.id, system.currentTick + 200);
+    } catch (error) {
+      // The chat line still reports the answer.
+    }
+    bringClose(entity, player);
+  }
+  showNotice(player, ["Asking the AI..."]);
+  talkBusy.add(player.id);
   let hunger;
   try {
-    hunger = pet.getProperty("obesity:hunger");
+    hunger = entity && entity.getProperty("obesity:hunger");
   } catch (error) {
     hunger = undefined;
   }
   const prior = talkHistory.get(player.id) || [];
-  const reply = localReply(text, hunger);
-  rememberTurn(player, text, reply);
-  sayLine(player, pet, reply);
-  const kind = player.getDynamicProperty("obesity:ai_kind");
-  const secret = player.getDynamicProperty("obesity:ai_secret");
-  if ((kind !== "cohere" && kind !== "local") || typeof secret !== "string" || !secret) return;
-  if (talkBusy.has(player.id)) return;
-  talkBusy.add(player.id);
   const turns = prior.concat([{ role: "user", content: text }]);
   let finished = false;
   const timeout = system.runTimeout(() => {
+    if (finished) return;
     finished = true;
     talkBusy.delete(player.id);
-  }, 40);
-  askObesity(kind, secret, turns, hunger)
+    aiMissed(player);
+  }, 160);
+  askObesity(saved.kind, saved.secret, turns, hunger)
     .then((result) => {
       if (finished) return;
       finished = true;
@@ -473,22 +509,36 @@ function hearChat(player, text) {
       } catch (error) {
         // The timer already finished.
       }
-      if (result && result.ok && result.text && result.text !== reply) {
+      if (result && result.ok && result.text) {
+        toldOffline.delete(player.id);
         rememberTurn(player, text, result.text);
-        sayLine(player, pet, result.text);
+        sayLine(player, entity, result.text);
         return;
       }
-      if (result && (result.reason === "denied" || result.status === 401 || result.status === 403) && !toldOffline.has(player.id)) {
-        toldOffline.add(player.id);
-        showNotice(player, ["Cohere refused that key. Create a new one at cohere.com, then run /obesity:connect to your key."]);
+      if (result && (result.reason === "denied" || result.status === 401 || result.status === 403)) {
+        showNotice(player, ["Cohere refused that key. Create a new one, then run /obesity:connect to your key."]);
+        return;
       }
+      aiMissed(player);
     })
     .catch((error) => {
       warn(`talk failed: ${error}`);
+      if (finished) return;
+      finished = true;
+      aiMissed(player);
     })
     .finally(() => {
       talkBusy.delete(player.id);
     });
+}
+
+function hearChat(player, text) {
+  const pet = ownedPet(player);
+  if (!pet) {
+    showNotice(player, ["Open the box, then tap Obesity or type in chat."]);
+    return;
+  }
+  requestSpeech(player, pet, text);
 }
 
 function openBoxNow(player, dim, loc) {
@@ -560,7 +610,7 @@ function openBoxNow(player, dim, loc) {
   playAt(dim, "random.pop", pos, 1.25, 0.8);
   burst(dim, "minecraft:heart_particle", pos, 8, 0.8, 0.3);
   try {
-    showNotice(player, ["Obesity is out. Tap him and he will answer.", "You can also type to him in chat."]);
+    showNotice(player, ["Obesity is out. Connect an AI, then tap him or type in chat.", "He says only what the AI sends back."]);
     player.onScreenDisplay.setActionBar("§eTap Obesity");
     const display = hungerDisplay(START_HUNGER, 1);
     showHud(player, display.title, display.subtitle);
@@ -636,7 +686,7 @@ function feedOrHint(entity, player) {
   let hunger = clampHunger(entity.getProperty("obesity:hunger"));
   const food = selectedFood(player);
   if (!food) {
-    sayLine(player, entity, localReply(hunger <= 6 ? "hungry" : "hello", hunger));
+    requestSpeech(player, entity, "The player tapped you. Answer in one short sentence.");
     playAt(entity.dimension, "random.burp", entity.location, hunger <= 6 ? 0.55 : 0.8, 0.35);
     return;
   }
@@ -670,7 +720,6 @@ function feedOrHint(entity, player) {
   playAt(entity.dimension, "random.eat", entity.location, 0.85 + Math.random() * 0.3, 1);
   if (result.status === "stuffed_now") playAt(entity.dimension, "random.burp", entity.location, 0.7, 1);
   burst(entity.dimension, "minecraft:heart_particle", entity.location, 4, 0.6, 1);
-  sayLine(player, entity, localReply("food", result.hunger));
   player.onScreenDisplay.setActionBar(feedMessage(result, food.stack.typeId));
   player.sendMessage(feedMessage(result, food.stack.typeId));
   const display = hungerDisplay(result.hunger, 1);

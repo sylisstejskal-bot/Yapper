@@ -241,6 +241,7 @@ export function aiGuideLines() {
     "/obesity:connect to YOUR_COHERE_API_KEY",
     "Replace YOUR_COHERE_API_KEY with your own key. The pack does not include a key, and the placeholder will not connect.",
     "You can also type those words in chat with no slash at all. Stand near Obesity and talk. Your key is not shown to other players.",
+    "Obesity says only what that AI sends back. He does not use pre-made lines.",
   ];
 }
 
@@ -336,10 +337,10 @@ export function connectFeedback(result) {
     ];
   }
   if (result.kind === "cohere") {
-    return ["Saved. Stand next to Obesity and talk. Your key was not repeated here."];
+    return ["Saved. Obesity will say only what Cohere sends back. Your key was not repeated here."];
   }
   if (result.kind === "local") {
-    return ["Saved. Stand next to Obesity and talk. The address was not repeated here."];
+    return ["Saved. Obesity will say only what your AI server sends back. The address was not repeated here."];
   }
   return [];
 }
