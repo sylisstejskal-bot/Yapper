@@ -1,0 +1,34 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:block": {
+    "description": {
+      "identifier": "obesity:box",
+      "menu_category": {
+        "category": "construction"
+      }
+    },
+    "components": {
+      "minecraft:custom_components": ["obesity:open_box"],
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.0
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 3
+      },
+      "minecraft:geometry": "geometry.obesity.box",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "obesity_box",
+          "render_method": "opaque",
+          "ambient_occlusion": true,
+          "face_dimming": true
+        }
+      },
+      "minecraft:collision_box": true,
+      "minecraft:selection_box": true,
+      "minecraft:loot": "loot_tables/blocks/obesity_box.json",
+      "minecraft:map_color": "#C49460",
+      "minecraft:light_dampening": 0
+    }
+  }
+}
