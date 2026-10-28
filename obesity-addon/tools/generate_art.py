@@ -63,63 +63,42 @@ def entity_texture():
     return img
 
 
-def cardboard(px, speckle=True):
-    base = (196, 154, 108, 255)
-    dark = (138, 106, 69, 255)
-    x, y = px
-    n = (x * 13 + y * 7) % 17
-    if speckle and n == 0:
-        return (168, 126, 82, 255)
-    if x % 32 in (0, 31) or y % 32 in (0, 31):
-        return dark
-    return base
+def paint_cardboard(px, ox, oy, size, base, light, speck, edge, slot=False):
+    for y in range(size):
+        for x in range(size):
+            if x in (0, size - 1) or y in (0, size - 1):
+                color = edge
+            else:
+                n = (x * 17 + y * 13) % 29
+                if n == 0:
+                    color = speck
+                elif n == 1:
+                    color = light
+                else:
+                    color = base
+            px[ox + x, oy + y] = color + (255,)
+    if not slot:
+        return
+    width = int(size * 0.52)
+    height = max(3, size // 8)
+    x0 = (size - width) // 2
+    y0 = (size - height) // 2
+    for y in range(y0 - 1, y0 + height + 1):
+        for x in range(x0 - 1, x0 + width + 1):
+            if 0 <= x < size and 0 <= y < size:
+                px[ox + x, oy + y] = (70, 48, 30, 255)
+    for y in range(y0, y0 + height):
+        for x in range(x0, x0 + width):
+            px[ox + x, oy + y] = (18, 14, 12, 255)
 
 
 def box_texture():
-    img = Image.new("RGBA", (64, 64), (160, 120, 80, 255))
+    img = Image.new("RGBA", (64, 64), (150, 110, 70, 255))
     px = img.load()
-    for y in range(64):
-        for x in range(64):
-            px[x, y] = cardboard((x, y))
-    # Side faces live in the 32x32 tile at (0, 0): cardboard with a yellow tape stripe.
-    for y in range(32):
-        for x in range(13, 19):
-            px[x, y] = (255, 214, 61, 255) if x not in (13, 18) else (232, 176, 32, 255)
-        if 6 <= y <= 22 and 22 <= x <= 29:
-            px[x, y] = (232, 214, 176, 255)
-    for y in range(8, 12):
-        for x in range(23, 28):
-            px[x, y] = (90, 60, 30, 255)
-    # Top tile (32, 0): tape cross.
-    for y in range(32):
-        for x in range(32):
-            tx, ty = 32 + x, y
-            tape = 13 <= x <= 18 or 13 <= y <= 18
-            if tape:
-                px[tx, ty] = (255, 214, 61, 255)
-            if x in (13, 18) or y in (13, 18):
-                if tape:
-                    px[tx, ty] = (232, 176, 32, 255)
-    # A round stamp in the corner of the lid.
-    for y in range(4, 12):
-        for x in range(20, 28):
-            if (x - 23) ** 2 + (y - 7) ** 2 <= 14:
-                px[32 + x, y] = (255, 236, 170, 255)
-    px[32 + 23, 7] = (90, 60, 30, 255)
-    px[32 + 22, 7] = (90, 60, 30, 255)
-    px[32 + 24, 7] = (90, 60, 30, 255)
-    px[32 + 23, 6] = (90, 60, 30, 255)
-    px[32 + 23, 8] = (90, 60, 30, 255)
-    # Bottom tile.
-    for y in range(32, 64):
-        for x in range(32):
-            if abs((x - 16) - (y - 48)) < 2 or abs((x - 16) + (y - 48)) < 2:
-                px[x, y] = (120, 86, 52, 255)
-    # Lid rim tile (32, 32), a short yellow band.
-    for y in range(32, 48):
-        for x in range(32, 64):
-            if 4 <= (y - 32) <= 11:
-                px[x, y] = (255, 214, 61, 255)
+    # Every side shows the dark slot, so the cube matches the reference from any angle.
+    paint_cardboard(px, 0, 0, 32, (196, 148, 96), (214, 170, 116), (158, 114, 70), (104, 72, 44), slot=True)
+    paint_cardboard(px, 32, 0, 32, (208, 164, 112), (224, 184, 132), (176, 132, 86), (120, 86, 54), slot=False)
+    paint_cardboard(px, 0, 32, 32, (146, 104, 66), (164, 120, 78), (120, 84, 52), (88, 60, 36), slot=False)
     return img
 
 
@@ -224,36 +203,23 @@ def box_bones():
     side = face_uv(0, 0, 32, 32)
     top = face_uv(32, 0, 32, 32)
     bottom = face_uv(0, 32, 32, 32)
-    rim = face_uv(32, 32, 32, 16)
     return [
         {
             "name": "box",
             "pivot": [0, 0, 0],
             "cubes": [
                 {
-                    "origin": [-6, 0, -6],
-                    "size": [12, 10, 12],
+                    "origin": [-8, 0, -8],
+                    "size": [16, 16, 16],
                     "uv": {
                         "north": side,
                         "south": side,
                         "east": side,
                         "west": side,
-                        "up": bottom,
+                        "up": top,
                         "down": bottom,
                     },
-                },
-                {
-                    "origin": [-7, 9.6, -7],
-                    "size": [14, 2.6, 14],
-                    "uv": {
-                        "north": rim,
-                        "south": rim,
-                        "east": rim,
-                        "west": rim,
-                        "up": top,
-                        "down": top,
-                    },
-                },
+                }
             ],
         }
     ]
@@ -367,7 +333,7 @@ def draw_model(texture, bones, mode, size, ground=True):
     # Farther faces (larger depth) paint first.
     polys.sort(key=lambda item: -item[0])
 
-    steps = 8
+    steps = 16
     for _depth, face, corners, u0, v0, uw, uh in polys:
         for iy in range(steps):
             for ix in range(steps):
@@ -482,7 +448,7 @@ def storyboard(character, box):
     canvas = Image.new("RGBA", (1320, 560), (24, 28, 34, 255))
     draw = ImageDraw.Draw(canvas)
     panels = [
-        (30, "1. Place the box", box, "A sealed carton with yellow tape."),
+        (30, "1. Place the box", box, "A cardboard cube with a dark slot."),
         (450, "2. Tap it open", character, "Obesity pops out, chubby and yellow."),
         (870, "3. Feed them", hud_mock().resize((390, 226), Image.Resampling.LANCZOS), "Their hunger stays at the top."),
     ]
