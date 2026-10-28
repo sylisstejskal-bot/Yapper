@@ -10,9 +10,22 @@ import {
   drainHunger,
   feedMessage,
   foodPoints,
+  COHERE_PLACEHOLDER,
+  LOCAL_PLACEHOLDER,
+  aiGuideLines,
+  boxSpots,
+  clipReply,
+  cohereRequest,
+  connectFeedback,
   hungerDisplay,
   hungriest,
   isFreshPlacement,
+  ollamaChatRequest,
+  ollamaTagsUrl,
+  parseConnectCommand,
+  readCohereReply,
+  readOllamaModel,
+  readOllamaReply,
   itemLabel,
   leftoverFor,
   sameOwner,
@@ -98,6 +111,62 @@ test("the tap that places the box does not open it", () => {
   assert.equal(isFreshPlacement(10, 10), true);
   assert.equal(isFreshPlacement(10, 11), true);
   assert.equal(isFreshPlacement(10, 12), false);
+});
+
+test("connect rejects the placeholders and keeps a real key private in the reply", () => {
+  const coherePlaceholder = parseConnectCommand("/connect to YOUR_COHERE_API_KEY");
+  assert.equal(coherePlaceholder.reason, "cohere-placeholder");
+  assert.equal(connectFeedback(coherePlaceholder).some((line) => line.includes("cohere.com")), true);
+
+  const localPlaceholder = parseConnectCommand("/connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE");
+  assert.equal(localPlaceholder.reason, "local-placeholder");
+  const spaced = parseConnectCommand("/connect to local ai server LOCAL_AI SERVER_PLACEHOLDER_HERE");
+  assert.equal(spaced.reason, "local-placeholder");
+
+  const local = parseConnectCommand("connect to local ai server http://ollama.local:11434");
+  assert.equal(local.kind, "local");
+  assert.equal(local.server, "http://ollama.local:11434");
+  assert.equal(connectFeedback(local).join(" ").includes("http://ollama.local"), false);
+
+  const cohere = parseConnectCommand("/connect to test-key");
+  assert.deepEqual(cohere, { kind: "cohere", key: "test-key" });
+  assert.equal(connectFeedback(cohere).join(" ").includes("test-key"), false);
+  assert.equal(parseConnectCommand("hello there").kind, "ignore");
+});
+
+test("the guide shows the placeholder commands and no real secret", () => {
+  const guide = aiGuideLines().join("\n");
+  assert.equal(guide.includes("/connect to YOUR_COHERE_API_KEY"), true);
+  assert.equal(guide.includes("/connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE"), true);
+  assert.equal(guide.includes(COHERE_PLACEHOLDER), true);
+  assert.equal(guide.includes(LOCAL_PLACEHOLDER), true);
+  assert.equal(guide.includes("Bearer "), false);
+});
+
+test("AI requests use the supplied connection and read the replies", () => {
+  const request = cohereRequest("test-key", [{ role: "user", content: "hi" }], 14);
+  assert.equal(request.url, "https://api.cohere.com/v2/chat");
+  assert.equal(request.body.stream, false);
+  assert.equal(request.headers[1][1], "Bearer test-key");
+  assert.equal(JSON.stringify(request).includes(COHERE_PLACEHOLDER), false);
+  assert.equal(readCohereReply(JSON.stringify({ message: { content: [{ type: "text", text: "feed me" }] } })), "feed me");
+
+  const ollama = ollamaChatRequest("http://ollama.local:11434", "llama3.2", [{ role: "user", content: "hi" }]);
+  assert.equal(ollama.url, "http://ollama.local:11434/api/chat");
+  assert.equal(ollamaTagsUrl("http://ollama.local:11434/api/chat"), "http://ollama.local:11434/api/tags");
+  assert.equal(readOllamaReply({ message: { content: "hello" } }), "hello");
+  assert.equal(readOllamaModel({ models: [{ name: "mistral" }, { name: "llama3.2:latest" }] }), "llama3.2:latest");
+  assert.equal(clipReply("a\nb§c"), "a b");
+});
+
+test("the box drops in front of the player", () => {
+  const spots = boxSpots(0.2, 64.9, 0.2, 0);
+  assert.equal(spots[0].x, 0);
+  assert.equal(spots[0].z, 2);
+  assert.equal(spots[0].y, 66);
+  const west = boxSpots(10.1, 70, 10.1, 90);
+  assert.equal(west[0].x, 8);
+  assert.equal(west[0].z, 10);
 });
 
 test("ownership and follow distance", () => {

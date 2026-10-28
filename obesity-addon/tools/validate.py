@@ -50,11 +50,11 @@ def main():
     rp = load(RP / "manifest.json")
     if bp["dependencies"][0]["uuid"] != rp["header"]["uuid"]:
         raise SystemExit("behavior pack does not depend on the resource pack")
-    if bp["header"]["min_engine_version"] != [1, 21, 90]:
+    if bp["header"]["min_engine_version"] != [1, 21, 100]:
         raise SystemExit("unexpected engine version")
     script = next(item for item in bp["dependencies"] if item.get("module_name") == "@minecraft/server")
-    if script["version"] != "2.0.0":
-        raise SystemExit("script module must be stable 2.0.0 so Android does not need the beta experiment")
+    if script["version"] != "2.1.0":
+        raise SystemExit("script module must be stable 2.1.0 so /connect works without the beta experiment")
     if not (BP / "scripts" / "main.js").exists() or not (BP / "scripts" / "logic.js").exists():
         raise SystemExit("scripts missing")
     main_js = (BP / "scripts" / "main.js").read_text(encoding="utf-8")

@@ -218,6 +218,197 @@ export function isFreshPlacement(placedTick, nowTick) {
   return nowTick - placedTick <= 1;
 }
 
+export const COHERE_PLACEHOLDER = "YOUR_COHERE_API_KEY";
+export const LOCAL_PLACEHOLDER = "LOCAL_AI_SERVER_PLACEHOLDER_HERE";
+export const COHERE_MODEL = "command-r7b-12-2024";
+export const OLLAMA_FALLBACK_MODEL = "llama3.2";
+
+const LOCAL_PLACEHOLDER_COMPACT = "LOCALAISERVERPLACEHOLDERHERE";
+
+export function aiGuideLines() {
+  return [
+    "Obesity can talk once you connect an AI. Pick one.",
+    "Local AI with Ollama: on a computer, install Ollama from ollama.com. In a terminal run: ollama pull llama3.2. Leave Ollama open, and allow its port on your Wi-Fi.",
+    "/connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE",
+    "Replace LOCAL_AI_SERVER_PLACEHOLDER_HERE with that computer's address, including http and the port. The placeholder is not a server.",
+    "Or go to cohere.com, create an API key, and run this:",
+    "/connect to YOUR_COHERE_API_KEY",
+    "Replace YOUR_COHERE_API_KEY with your own key. The pack does not include a key, and the placeholder will not connect.",
+    "Stand near Obesity and talk in chat. If a slash is an unknown command, type the same words without the slash. Your key is not shown to other players.",
+    "A phone or single-player world cannot open the connection. A Bedrock dedicated server on the Ollama computer can, after network scripts are allowed there.",
+  ];
+}
+
+export function isLocalPlaceholder(value) {
+  if (typeof value !== "string") return false;
+  return value.replace(/[\s_]/g, "").toUpperCase() === LOCAL_PLACEHOLDER_COMPACT;
+}
+
+export function normalizeServer(input) {
+  if (typeof input !== "string") return undefined;
+  const text = input.trim();
+  if (!/^https?:\/\//i.test(text)) return undefined;
+  let parsed;
+  try {
+    parsed = new URL(text);
+  } catch (error) {
+    return undefined;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return undefined;
+  if (!parsed.hostname) return undefined;
+  return text.replace(/\/+$/, "");
+}
+
+export function parseConnectCommand(raw) {
+  if (typeof raw !== "string") return { kind: "ignore" };
+  let text = raw.trim();
+  if (text.startsWith("/")) text = text.slice(1).trim();
+  const lower = text.toLowerCase();
+  const prefix = "connect to ";
+  if (!lower.startsWith(prefix)) return { kind: "ignore" };
+  const rest = text.slice(prefix.length).trim();
+  if (!rest) return { kind: "error", reason: "empty" };
+  const local = rest.match(/^local\s+ai\s+server\s+(.+)$/i);
+  if (local) {
+    const server = local[1].trim();
+    if (!server || isLocalPlaceholder(server)) return { kind: "error", reason: "local-placeholder" };
+    const normalized = normalizeServer(server);
+    if (!normalized) return { kind: "error", reason: "bad-server" };
+    return { kind: "local", server: normalized };
+  }
+  if (rest.toUpperCase() === COHERE_PLACEHOLDER || rest.toLowerCase() === "your_cohere_api_key") {
+    return { kind: "error", reason: "cohere-placeholder" };
+  }
+  if (/\s/.test(rest)) return { kind: "error", reason: "bad-key" };
+  return { kind: "cohere", key: rest };
+}
+
+export function connectFeedback(result) {
+  if (!result || result.kind === "ignore") return [];
+  if (result.reason === "cohere-placeholder") {
+    return ["YOUR_COHERE_API_KEY is only a placeholder. Create a key at cohere.com, then put that key after /connect to"];
+  }
+  if (result.reason === "local-placeholder") {
+    return ["LOCAL_AI_SERVER_PLACEHOLDER_HERE is only a placeholder. Put your Ollama address there instead."];
+  }
+  if (result.reason === "bad-server") {
+    return ["The local address needs to start with http:// or https://. Replace the placeholder with that address."];
+  }
+  if (result.reason === "bad-key" || result.reason === "empty") {
+    return [
+      "For Ollama: /connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE",
+      "For Cohere: /connect to YOUR_COHERE_API_KEY",
+      "Replace the placeholder. Do not leave it in the command.",
+    ];
+  }
+  if (result.kind === "cohere") {
+    return ["Saved. Obesity will use Cohere. Your key was not repeated here."];
+  }
+  if (result.kind === "local") {
+    return ["Saved. Obesity will use your local AI server. The address was not repeated here."];
+  }
+  return [];
+}
+
+export function systemPrompt(hunger) {
+  const base =
+    "You are Obesity, a round yellow creature in Minecraft with a huge belly and a big smile. You love food. Answer in two short sentences.";
+  if (typeof hunger !== "number") return base;
+  return `${base} Your hunger is ${hunger} out of 20.`;
+}
+
+export function cohereRequest(key, turns, hunger) {
+  return {
+    url: "https://api.cohere.com/v2/chat",
+    headers: [
+      ["Content-Type", "application/json"],
+      ["Authorization", `Bearer ${key}`],
+    ],
+    body: {
+      model: COHERE_MODEL,
+      stream: false,
+      max_tokens: 80,
+      messages: [{ role: "system", content: systemPrompt(hunger) }, ...turns],
+    },
+  };
+}
+
+export function ollamaTagsUrl(server) {
+  const base = String(server).replace(/\/+$/, "");
+  if (base.endsWith("/api/chat")) return base.replace(/\/api\/chat$/, "/api/tags");
+  return `${base}/api/tags`;
+}
+
+export function ollamaChatUrl(server) {
+  const base = String(server).replace(/\/+$/, "");
+  if (base.endsWith("/api/chat")) return base;
+  return `${base}/api/chat`;
+}
+
+export function ollamaChatRequest(server, model, turns, hunger) {
+  return {
+    url: ollamaChatUrl(server),
+    headers: [["Content-Type", "application/json"]],
+    body: {
+      model: model || OLLAMA_FALLBACK_MODEL,
+      stream: false,
+      messages: [{ role: "system", content: systemPrompt(hunger) }, ...turns],
+    },
+  };
+}
+
+export function readCohereReply(body) {
+  const data = typeof body === "string" ? JSON.parse(body) : body;
+  const content = data && data.message ? data.message.content : undefined;
+  if (typeof content === "string") return content.trim();
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => (part && (part.text || (typeof part.content === "string" ? part.content : ""))) || "")
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+  }
+  if (data && typeof data.text === "string") return data.text.trim();
+  return "";
+}
+
+export function readOllamaReply(body) {
+  const data = typeof body === "string" ? JSON.parse(body) : body;
+  const content = data && data.message ? data.message.content : undefined;
+  return typeof content === "string" ? content.trim() : "";
+}
+
+export function readOllamaModel(body) {
+  const data = typeof body === "string" ? JSON.parse(body) : body;
+  const models = data && Array.isArray(data.models) ? data.models : [];
+  const names = models.map((model) => model && (model.name || model.model)).filter(Boolean);
+  if (names.length === 0) return undefined;
+  return names.find((name) => String(name).startsWith("llama3.2")) || names[0];
+}
+
+export function clipReply(text) {
+  const clean = String(text || "")
+    .replace(/§./g, "")
+    .replace(/[\r\n]+/g, " ")
+    .trim();
+  if (!clean) return "";
+  return clean.length > 180 ? `${clean.slice(0, 177)}...` : clean;
+}
+
+export function boxSpots(x, y, z, yaw) {
+  const rad = (Number(yaw) * Math.PI) / 180;
+  const fx = -Math.sin(rad);
+  const fz = Math.cos(rad);
+  const baseY = Math.floor(y);
+  const spots = [];
+  for (const dist of [2, 3, 4]) {
+    const bx = Math.floor(x + fx * dist);
+    const bz = Math.floor(z + fz * dist);
+    for (let dy = 2; dy >= -4; dy--) spots.push({ x: bx, y: baseY + dy, z: bz });
+  }
+  return spots;
+}
+
 export function hungriest(records) {
   let best;
   for (const record of records) {

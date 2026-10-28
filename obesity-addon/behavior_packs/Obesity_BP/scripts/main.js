@@ -1,16 +1,22 @@
-import { system, world, GameMode, ItemStack } from "@minecraft/server";
+import { system, world, GameMode, ItemStack, CommandPermissionLevel, CustomCommandParamType, CustomCommandStatus } from "@minecraft/server";
+import { askObesity } from "./aiNet.js";
 import {
   DRAIN_INTERVAL_SECONDS,
   START_HUNGER,
+  aiGuideLines,
   applyFeed,
+  boxSpots,
   clampHunger,
+  connectFeedback,
   crossedWarning,
+  distanceSquared,
   drainHunger,
   feedMessage,
   foodPoints,
   hungerDisplay,
   leftoverFor,
   isFreshPlacement,
+  parseConnectCommand,
   sameOwner,
   shouldTeleport,
 } from "./logic.js";
@@ -23,6 +29,11 @@ const hudState = new Map();
 const busyBoxes = new Set();
 const fedAt = new Map();
 const placedTick = new Map();
+const talkHistory = new Map();
+const talkBusy = new Set();
+const toldOffline = new Set();
+const showedGuide = new Set();
+const TALK_DISTANCE = 8;
 
 function warn(message) {
   console.warn(`[Obesity] ${message}`);
@@ -185,15 +196,195 @@ function clearHud(player) {
   }
 }
 
+function showAiGuide(player) {
+  try {
+    if (showedGuide.has(player.id)) {
+      player.sendMessage("§e/connect to YOUR_COHERE_API_KEY");
+      player.sendMessage("§e/connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE");
+      player.sendMessage("§7Replace the placeholder. Neither one is a real key or server.");
+      return;
+    }
+    showedGuide.add(player.id);
+    for (const line of aiGuideLines()) {
+      const color = line.startsWith("/connect") ? "§e" : "§f";
+      player.sendMessage(color + line);
+    }
+  } catch (error) {
+    warn(`could not show the AI steps: ${error}`);
+  }
+}
+
+function placeBoxNear(player) {
+  let yaw = 0;
+  try {
+    yaw = player.getRotation().y;
+  } catch (error) {
+    yaw = 0;
+  }
+  const spots = boxSpots(player.location.x, player.location.y, player.location.z, yaw);
+  const dim = player.dimension;
+  for (const spot of spots) {
+    try {
+      const below = dim.getBlock({ x: spot.x, y: spot.y - 1, z: spot.z });
+      const here = dim.getBlock(spot);
+      const above = dim.getBlock({ x: spot.x, y: spot.y + 1, z: spot.z });
+      if (!below || !here || !above) continue;
+      if (!below.isSolid || below.isLiquid) continue;
+      if (!here.isAir || !above.isAir) continue;
+      dim.setBlockType(spot, BOX_ID);
+      return true;
+    } catch (error) {
+      // That spot is outside the loaded area. Try the next one.
+    }
+  }
+  return false;
+}
+
 function welcome(player) {
   try {
-    if (player.hasTag("obesity_welcomed")) return;
-    giveOrDrop(player, BOX_ID, 1);
-    player.addTag("obesity_welcomed");
-    player.sendMessage("§6Obesity§f put a sealed box in your inventory.");
-    player.sendMessage("§fPlace the box, then tap it. Obesity pops out. Hold food and tap them. The bar at the top of the screen is Obesity's hunger.");
+    if (player.hasTag("obesity_box_spawned")) return;
+    const placed = placeBoxNear(player);
+    player.addTag("obesity_box_spawned");
+    if (placed) {
+      player.sendMessage("§6Obesity§f dropped a sealed box in front of you. Tap it.");
+    } else {
+      giveOrDrop(player, BOX_ID, 1);
+      player.sendMessage("§6Obesity§f could not find open ground, so the box is in your inventory. Place it, then tap it.");
+    }
+    showAiGuide(player);
   } catch (error) {
     warn(`welcome failed: ${error}`);
+  }
+}
+
+function saveConnection(player, result) {
+  try {
+    player.setDynamicProperty("obesity:ai_kind", result.kind);
+    player.setDynamicProperty("obesity:ai_secret", result.kind === "cohere" ? result.key : result.server);
+  } catch (error) {
+    warn(`could not save the AI connection: ${error}`);
+    return false;
+  }
+  return true;
+}
+
+function applyConnect(player, raw) {
+  const result = parseConnectCommand(raw);
+  if (result.kind === "ignore") return;
+  for (const line of connectFeedback(result)) player.sendMessage(`§e${line}`);
+  if (result.kind !== "cohere" && result.kind !== "local") return;
+  if (!saveConnection(player, result)) {
+    player.sendMessage("§cObesity could not save that connection.");
+  }
+}
+
+function nearbyPet(player) {
+  let list;
+  try {
+    list = player.dimension.getEntities({
+      type: PET_ID,
+      location: player.location,
+      maxDistance: TALK_DISTANCE,
+    });
+  } catch (error) {
+    return undefined;
+  }
+  let best;
+  let bestDistance = TALK_DISTANCE * TALK_DISTANCE + 1;
+  for (const entity of list) {
+    let distance;
+    try {
+      distance = distanceSquared(entity.location, player.location);
+    } catch (error) {
+      continue;
+    }
+    let owned = false;
+    try {
+      owned = sameOwner(
+        {
+          id: entity.getDynamicProperty("obesity:owner_id"),
+          name: entity.getDynamicProperty("obesity:owner_name"),
+        },
+        player
+      );
+    } catch (error) {
+      owned = false;
+    }
+    if (owned) return entity;
+    if (distance < bestDistance) {
+      best = entity;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+function talkFailure(player, result) {
+  if (result.reason === "no-net") {
+    if (toldOffline.has(player.id)) {
+      player.sendMessage("§eObesity still cannot reach the AI from this world.");
+      return;
+    }
+    toldOffline.add(player.id);
+    player.sendMessage("§eObesity saved the connection, but this Minecraft world cannot call Ollama or Cohere.");
+    player.sendMessage("§7Host the world on a Bedrock dedicated server and allow network scripts, then talk again.");
+    return;
+  }
+  if (result.reason === "http" && result.status === 401) {
+    player.sendMessage("§cCohere refused that key. Create a new one and run /connect to your key.");
+    return;
+  }
+  if (result.reason === "http") {
+    player.sendMessage("§cObesity could not get an answer. Check the AI server, then try again.");
+    return;
+  }
+  player.sendMessage("§cObesity could not get an answer. Try again in a moment.");
+}
+
+async function hearChat(player, text) {
+  const pet = nearbyPet(player);
+  if (!pet) return;
+  const kind = player.getDynamicProperty("obesity:ai_kind");
+  const secret = player.getDynamicProperty("obesity:ai_secret");
+  if ((kind !== "cohere" && kind !== "local") || typeof secret !== "string" || !secret) {
+    showAiGuide(player);
+    return;
+  }
+  if (talkBusy.has(player.id)) {
+    player.sendMessage("§eObesity is still thinking.");
+    return;
+  }
+  talkBusy.add(player.id);
+  try {
+    let hunger;
+    try {
+      hunger = pet.getProperty("obesity:hunger");
+    } catch (error) {
+      hunger = undefined;
+    }
+    const prior = talkHistory.get(player.id) || [];
+    const turns = prior.concat([{ role: "user", content: text }]);
+    const result = await askObesity(kind, secret, turns, hunger);
+    if (!result.ok) {
+      talkFailure(player, result);
+      return;
+    }
+    const history = prior.concat([
+      { role: "user", content: text },
+      { role: "assistant", content: result.text },
+    ]);
+    while (history.length > 8) history.shift();
+    talkHistory.set(player.id, history);
+    player.sendMessage(`§eObesity: §f${result.text}`);
+  } catch (error) {
+    warn(`talk failed: ${error}`);
+    try {
+      player.sendMessage("§cObesity could not get an answer. Try again in a moment.");
+    } catch (sendError) {
+      // Player left mid-reply.
+    }
+  } finally {
+    talkBusy.delete(player.id);
   }
 }
 
@@ -266,6 +457,7 @@ function openBoxNow(player, dim, loc) {
   burst(dim, "minecraft:heart_particle", pos, 8, 0.8, 0.3);
   try {
     player.sendMessage("§eObesity tumbles out, already eyeing your food.");
+    player.sendMessage("§fHold food and tap Obesity. To let them talk, use one of the /connect commands from earlier.");
     player.onScreenDisplay.setActionBar("§eHold food and tap Obesity");
     const display = hungerDisplay(START_HUNGER, 1);
     showHud(player, display.title, display.subtitle);
@@ -467,7 +659,47 @@ function startLoop() {
   }, 20);
 }
 
+function registerConnect(init) {
+  const registry = init.customCommandRegistry;
+  if (!registry) return;
+  registry.registerEnum("obesity:connect_to", ["to"]);
+  const words = ["w1", "w2", "w3", "w4", "w5", "w6"].map((name) => ({
+    name,
+    type: CustomCommandParamType.String,
+  }));
+  registry.registerCommand(
+    {
+      name: "obesity:connect",
+      description: "Connect Obesity to Cohere or a local AI server",
+      permissionLevel: CommandPermissionLevel.Any,
+      cheatsRequired: false,
+      mandatoryParameters: [{ name: "obesity:connect_to", type: CustomCommandParamType.Enum }],
+      optionalParameters: words,
+    },
+    (origin, args) => {
+      const entity = origin && (origin.sourceEntity || origin.initiator);
+      const parts = Array.isArray(args) ? args.filter((arg) => typeof arg === "string") : [];
+      const phrase = parts.join(" ").trim();
+      const raw = phrase.toLowerCase().startsWith("to ") || phrase.toLowerCase() === "to" ? `connect ${phrase}` : `connect to ${phrase}`;
+      system.run(() => {
+        if (!entity || entity.typeId !== "minecraft:player") return;
+        try {
+          applyConnect(entity, raw);
+        } catch (error) {
+          warn(`connect failed: ${error}`);
+        }
+      });
+      return { status: CustomCommandStatus.Success };
+    }
+  );
+}
+
 system.beforeEvents.startup.subscribe((init) => {
+  try {
+    registerConnect(init);
+  } catch (error) {
+    warn(`could not register /connect: ${error}`);
+  }
   try {
     init.blockComponentRegistry.registerCustomComponent("obesity:open_box", {
       onPlayerInteract(event) {
@@ -559,6 +791,29 @@ world.afterEvents.playerInteractWithEntity.subscribe((event) => {
   });
 });
 
+world.beforeEvents.chatSend.subscribe((event) => {
+  const player = event.sender;
+  const message = event.message;
+  if (!player || typeof message !== "string") return;
+  const parsed = parseConnectCommand(message);
+  if (parsed.kind !== "ignore") {
+    event.cancel = true;
+    system.run(() => {
+      try {
+        applyConnect(player, message);
+      } catch (error) {
+        warn(`connect failed: ${error}`);
+      }
+    });
+    return;
+  }
+  const text = message.trim();
+  if (!text || text.startsWith("/")) return;
+  system.run(() => {
+    hearChat(player, text).catch((error) => warn(`talk failed: ${error}`));
+  });
+});
+
 world.afterEvents.playerSpawn.subscribe((event) => {
   if (!event.initialSpawn) return;
   const player = event.player;
@@ -597,9 +852,11 @@ world.afterEvents.entityDie.subscribe((event) => {
   for (const player of world.getPlayers()) {
     if (player.name !== ownerName) continue;
     try {
-      player.sendMessage("§cObesity collapsed. Place another box when you are ready.");
+      const placed = placeBoxNear(player);
+      if (!placed) giveOrDrop(player, BOX_ID, 1);
+      player.sendMessage(placed ? "§cObesity collapsed. A new box dropped in front of you." : "§cObesity collapsed. A new box is in your inventory.");
       player.onScreenDisplay.setTitle("§cObesity collapsed", {
-        subtitle: "§7Place another box",
+        subtitle: placed ? "§7A new box dropped" : "§7A new box is in your inventory",
         fadeInDuration: 0,
         stayDuration: 70,
         fadeOutDuration: 10,
