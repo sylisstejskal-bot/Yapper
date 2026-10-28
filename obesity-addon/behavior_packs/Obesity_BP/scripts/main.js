@@ -10,6 +10,7 @@ import {
   foodPoints,
   hungerDisplay,
   leftoverFor,
+  isFreshPlacement,
   sameOwner,
   shouldTeleport,
 } from "./logic.js";
@@ -21,6 +22,7 @@ const DIMS = ["overworld", "nether", "the_end"];
 const hudState = new Map();
 const busyBoxes = new Set();
 const fedAt = new Map();
+const placedTick = new Map();
 
 function warn(message) {
   console.warn(`[Obesity] ${message}`);
@@ -40,11 +42,29 @@ function nutritionOf(item) {
   return undefined;
 }
 
-function holdingBox(player) {
+function moveOffBox(player) {
   try {
     const inventory = player.getComponent("minecraft:inventory");
-    const stack = inventory && inventory.container ? inventory.container.getItem(player.selectedSlotIndex) : undefined;
-    return Boolean(stack && stack.typeId === BOX_ID);
+    const container = inventory && inventory.container;
+    if (!container) return;
+    const selected = container.getItem(player.selectedSlotIndex);
+    if (!selected || selected.typeId !== BOX_ID) return;
+    const hotbar = Math.min(9, container.size);
+    for (let slot = 0; slot < hotbar; slot++) {
+      if (slot === player.selectedSlotIndex) continue;
+      if (!container.getItem(slot)) {
+        player.selectedSlotIndex = slot;
+        return;
+      }
+    }
+  } catch (error) {
+    // Staying on the box is fine. The next tap still opens it.
+  }
+}
+
+function sneaking(player) {
+  try {
+    return Boolean(player.isSneaking);
   } catch (error) {
     return false;
   }
@@ -171,7 +191,7 @@ function welcome(player) {
     giveOrDrop(player, BOX_ID, 1);
     player.addTag("obesity_welcomed");
     player.sendMessage("§6Obesity§f put a sealed box in your inventory.");
-    player.sendMessage("§fPlace it, switch to an empty hand, and tap the box. A chubby yellow creature pops out. Hold food and tap them. The bar at the top of the screen is Obesity's hunger.");
+    player.sendMessage("§fPlace the box, then tap it. Obesity pops out. Hold food and tap them. The bar at the top of the screen is Obesity's hunger.");
   } catch (error) {
     warn(`welcome failed: ${error}`);
   }
@@ -180,14 +200,7 @@ function welcome(player) {
 function openBoxNow(player, dim, loc) {
   const key = boxKey(dim, loc);
   if (busyBoxes.has(key)) return;
-  if (holdingBox(player)) {
-    try {
-      player.onScreenDisplay.setActionBar("§ePut the box away, then tap it to open");
-    } catch (error) {
-      // Action bar is a hint. Opening still works on the next empty-hand tap.
-    }
-    return;
-  }
+  if (isFreshPlacement(placedTick.get(key), system.currentTick)) return;
   let block;
   try {
     block = dim.getBlock(loc);
@@ -261,14 +274,23 @@ function openBoxNow(player, dim, loc) {
   }
 }
 
-function tryOpen(player, dim, loc) {
+function queueOpen(player, loc) {
+  const spot = { x: loc.x, y: loc.y, z: loc.z };
   system.run(() => {
     try {
-      openBoxNow(player, dim, loc);
+      openBoxNow(player, player.dimension, spot);
     } catch (error) {
       warn(`open failed: ${error}`);
     }
   });
+}
+
+function listen(register) {
+  try {
+    register();
+  } catch (error) {
+    warn(`could not listen for the box: ${error}`);
+  }
 }
 
 function selectedFood(player) {
@@ -452,9 +474,7 @@ system.beforeEvents.startup.subscribe((init) => {
         const player = event.player;
         const block = event.block;
         if (!player || !block) return;
-        const dim = block.dimension;
-        const loc = { x: block.location.x, y: block.location.y, z: block.location.z };
-        tryOpen(player, dim, loc);
+        queueOpen(player, { x: block.location.x, y: block.location.y, z: block.location.z });
       },
     });
   } catch (error) {
@@ -462,21 +482,64 @@ system.beforeEvents.startup.subscribe((init) => {
   }
 });
 
+function rememberPlacement(block) {
+  const key = boxKey(block.dimension, block.location);
+  placedTick.set(key, system.currentTick);
+  system.runTimeout(() => placedTick.delete(key), 5);
+}
+
+function boxSpot(block) {
+  return { x: block.location.x, y: block.location.y, z: block.location.z };
+}
+
+listen(() => {
+  world.beforeEvents.playerInteractWithBlock.subscribe((event) => {
+    const block = event.block;
+    const player = event.player;
+    if (!player || !block || block.typeId !== BOX_ID) return;
+    // A tap while holding the box tries to place another one. Open this one instead.
+    event.cancel = true;
+    queueOpen(player, boxSpot(block));
+  });
+});
+
+listen(() => {
+  world.beforeEvents.playerBreakBlock.subscribe((event) => {
+    const block = event.block;
+    const player = event.player;
+    if (!player || !block || block.typeId !== BOX_ID) return;
+    if (sneaking(player)) return;
+    event.cancel = true;
+    queueOpen(player, boxSpot(block));
+  });
+});
+
+listen(() => {
+  world.afterEvents.entityHitBlock.subscribe((event) => {
+    const player = event.damagingEntity;
+    const block = event.hitBlock;
+    if (!player || player.typeId !== "minecraft:player" || !block || block.typeId !== BOX_ID) return;
+    if (sneaking(player)) return;
+    queueOpen(player, boxSpot(block));
+  });
+});
+
 world.afterEvents.playerInteractWithBlock.subscribe((event) => {
   const block = event.block;
   const player = event.player;
   if (!player || !block || block.typeId !== BOX_ID) return;
-  const dim = block.dimension;
-  const loc = { x: block.location.x, y: block.location.y, z: block.location.z };
-  tryOpen(player, dim, loc);
+  queueOpen(player, boxSpot(block));
 });
 
 world.afterEvents.playerPlaceBlock.subscribe((event) => {
   if (!event.block || event.block.typeId !== BOX_ID || !event.player) return;
   const player = event.player;
+  rememberPlacement(event.block);
   system.run(() => {
     try {
-      player.onScreenDisplay.setActionBar("§ePut the box away, then tap it to let Obesity out");
+      moveOffBox(player);
+      player.onScreenDisplay.setActionBar("§eTap the box to let Obesity out");
+      player.sendMessage("§eTap the box to let Obesity out.");
     } catch (error) {
       // Hint only.
     }

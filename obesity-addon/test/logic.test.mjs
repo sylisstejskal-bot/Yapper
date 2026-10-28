@@ -12,6 +12,7 @@ import {
   foodPoints,
   hungerDisplay,
   hungriest,
+  isFreshPlacement,
   itemLabel,
   leftoverFor,
   sameOwner,
@@ -90,6 +91,13 @@ test("hunger drains one point and warnings fire on the way down", () => {
   assert.deepEqual(crossedWarning(1, 0), ["starving"]);
   assert.deepEqual(crossedWarning(14, 13), []);
   assert.deepEqual(crossedWarning(6, 5), []);
+});
+
+test("the tap that places the box does not open it", () => {
+  assert.equal(isFreshPlacement(undefined, 10), false);
+  assert.equal(isFreshPlacement(10, 10), true);
+  assert.equal(isFreshPlacement(10, 11), true);
+  assert.equal(isFreshPlacement(10, 12), false);
 });
 
 test("ownership and follow distance", () => {

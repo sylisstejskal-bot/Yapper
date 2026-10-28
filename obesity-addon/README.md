@@ -17,7 +17,7 @@ The same file works on Windows and consoles. On Windows you can also double-clic
 ## How to play
 
 1. Place the **Obesity Box**.
-2. Switch to an empty hand and tap the box. Obesity tumbles out.
+2. Tap the box. Obesity tumbles out. Tapping it while you are still holding a box opens it. Crouch and hold if you want to mine the box and pick it back up.
 3. Look at the top of the screen. The bar is Obesity's hunger, from 0 to 20. Your own hunger bar stays above the hotbar.
 4. Hold any food and tap Obesity. The food is eaten (bowls and bottles are given back). Steak fills more than bread. A golden apple is a big meal, and an enchanted golden apple fills the bar.
 5. Hunger drops by 1 every 12 seconds. At 0, Obesity can barely move until you feed them. They follow you, and they walk toward food you hold.

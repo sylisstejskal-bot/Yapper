@@ -212,6 +212,12 @@ export function sameOwner(record, player) {
   return false;
 }
 
+// The placement tap can also hit the new box. Ignore that tap, then open on the next one.
+export function isFreshPlacement(placedTick, nowTick) {
+  if (placedTick == null || nowTick == null) return false;
+  return nowTick - placedTick <= 1;
+}
+
 export function hungriest(records) {
   let best;
   for (const record of records) {
