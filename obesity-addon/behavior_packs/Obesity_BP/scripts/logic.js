@@ -212,6 +212,11 @@ export function sameOwner(record, player) {
   return false;
 }
 
+// A held item would place against the box. Cancel that use. An empty hand can interact normally.
+export function shouldCancelBoxUse(itemTypeId) {
+  return typeof itemTypeId === "string" && itemTypeId.length > 0 && itemTypeId !== "minecraft:air";
+}
+
 // The placement tap can also hit the new box. Ignore that tap, then open on the next one.
 export function isFreshPlacement(placedTick, nowTick) {
   if (placedTick == null || nowTick == null) return false;

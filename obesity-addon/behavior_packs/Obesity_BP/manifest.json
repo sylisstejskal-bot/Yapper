@@ -4,27 +4,27 @@
     "name": "Obesity",
     "description": "A box appears in front of you. Open it and keep Obesity fed. Connect a local Ollama server or your own Cohere key so Obesity can talk. Requires Minecraft 1.21.100 or newer.",
     "uuid": "6c8e4f20-1b7a-4e3d-9f55-8a2d6c0e1b47",
-    "version": [1, 4, 1],
+    "version": [1, 4, 2],
     "min_engine_version": [1, 21, 100]
   },
   "modules": [
     {
       "type": "data",
       "uuid": "9a1d5c33-7e04-4b82-a6f8-2c5d9e0b4a18",
-      "version": [1, 4, 1]
+      "version": [1, 4, 2]
     },
     {
       "type": "script",
       "language": "javascript",
       "entry": "scripts/main.js",
       "uuid": "d2f6a891-3c45-4e70-b1d9-7a8e5c2f06b3",
-      "version": [1, 4, 1]
+      "version": [1, 4, 2]
     }
   ],
   "dependencies": [
     {
       "uuid": "1b9e4d72-8a06-4c53-9f21-5e7d3a8b0c64",
-      "version": [1, 4, 1]
+      "version": [1, 4, 2]
     },
     {
       "module_name": "@minecraft/server",

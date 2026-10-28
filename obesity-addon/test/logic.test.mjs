@@ -34,6 +34,7 @@ import {
   itemLabel,
   leftoverFor,
   sameOwner,
+  shouldCancelBoxUse,
   shouldTeleport,
   stripCodes,
 } from "../behavior_packs/Obesity_BP/scripts/logic.js";
@@ -116,6 +117,9 @@ test("the tap that places the box does not open it", () => {
   assert.equal(isFreshPlacement(10, 10), true);
   assert.equal(isFreshPlacement(10, 11), true);
   assert.equal(isFreshPlacement(10, 12), false);
+  assert.equal(shouldCancelBoxUse(undefined), false);
+  assert.equal(shouldCancelBoxUse("minecraft:air"), false);
+  assert.equal(shouldCancelBoxUse("obesity:box"), true);
 });
 
 test("connect rejects the placeholders and keeps a real key private in the reply", () => {

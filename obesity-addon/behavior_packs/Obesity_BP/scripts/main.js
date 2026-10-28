@@ -22,6 +22,7 @@ import {
   isFreshPlacement,
   parseConnectCommand,
   sameOwner,
+  shouldCancelBoxUse,
   shouldTeleport,
 } from "./logic.js";
 
@@ -239,7 +240,7 @@ function playerToken(player) {
   }
 }
 
-function findPlayer(token, fallback) {
+function playerFromToken(token, fallback) {
   if (!token) return fallback;
   try {
     const players = world.getPlayers();
@@ -445,11 +446,15 @@ function hearChat(player, text) {
 function openBoxNow(player, dim, loc) {
   const key = boxKey(dim, loc);
   if (busyBoxes.has(key)) return;
-  if (isFreshPlacement(placedTick.get(key), system.currentTick)) return;
+  if (isFreshPlacement(placedTick.get(key), system.currentTick)) {
+    showNotice(player, ["Tap the box again."]);
+    return;
+  }
   let block;
   try {
     block = dim.getBlock(loc);
   } catch (error) {
+    showNotice(player, ["Move closer to the box and tap it."]);
     return;
   }
   if (!block || block.typeId !== BOX_ID) return;
@@ -462,6 +467,7 @@ function openBoxNow(player, dim, loc) {
   } catch (error) {
     busyBoxes.delete(key);
     warn(`could not open box: ${error}`);
+    showNotice(player, ["The box did not open. Tap it again."]);
     return;
   }
 
@@ -476,11 +482,7 @@ function openBoxNow(player, dim, loc) {
     }
     busyBoxes.delete(key);
     warn(`could not spawn Obesity: ${error}`);
-    try {
-      player.sendMessage("§cThe box rattles, but Obesity will not come out. Try again.");
-    } catch (messageError) {
-      // Player may have left.
-    }
+    showNotice(player, ["The box rattles, but Obesity will not come out. Try again."]);
     return;
   }
 
@@ -519,15 +521,44 @@ function openBoxNow(player, dim, loc) {
   }
 }
 
-function queueOpen(player, loc) {
-  const spot = { x: loc.x, y: loc.y, z: loc.z };
+function scheduleOpen(player, dimId, loc) {
+  const spot = { x: Number(loc.x), y: Number(loc.y), z: Number(loc.z) };
+  const token = playerToken(player);
+  const savedId = String(dimId || "overworld").replace(/^minecraft:/, "");
   system.run(() => {
+    const current = playerFromToken(token, player);
+    if (!current) return;
+    let dim;
     try {
-      openBoxNow(player, player.dimension, spot);
+      dim = world.getDimension(savedId);
+    } catch (error) {
+      try {
+        dim = current.dimension;
+      } catch (dimensionError) {
+        dim = undefined;
+      }
+    }
+    if (!dim) {
+      showNotice(current, ["Move closer to the box and tap it."]);
+      return;
+    }
+    try {
+      openBoxNow(current, dim, spot);
     } catch (error) {
       warn(`open failed: ${error}`);
+      showNotice(current, ["The box did not open. Tap it again."]);
     }
   });
+}
+
+function dimensionIdOf(source) {
+  try {
+    if (source && source.dimension && source.dimension.id) return source.dimension.id;
+    if (source && source.id) return source.id;
+  } catch (error) {
+    // Fall back to the overworld. The player is standing at the box.
+  }
+  return "overworld";
 }
 
 function listen(register) {
@@ -735,7 +766,7 @@ function registerConnect(init) {
       const lines = connectFeedback(result);
       const token = playerToken(origin && (origin.sourceEntity || origin.initiator));
       system.runTimeout(() => {
-        const player = findPlayer(token);
+        const player = playerFromToken(token);
         if (!player) return;
         try {
           applyConnect(player, raw);
@@ -753,21 +784,21 @@ function registerConnect(init) {
 
 system.beforeEvents.startup.subscribe((init) => {
   try {
-    registerConnect(init);
-  } catch (error) {
-    warn(`could not register /obesity:connect: ${error}`);
-  }
-  try {
     init.blockComponentRegistry.registerCustomComponent("obesity:open_box", {
       onPlayerInteract(event) {
         const player = event.player;
         const block = event.block;
         if (!player || !block) return;
-        queueOpen(player, { x: block.location.x, y: block.location.y, z: block.location.z });
+        scheduleOpen(player, dimensionIdOf(event.dimension || block), block.location);
       },
     });
   } catch (error) {
     warn(`could not register the box: ${error}`);
+  }
+  try {
+    registerConnect(init);
+  } catch (error) {
+    warn(`could not register /obesity:connect: ${error}`);
   }
 });
 
@@ -777,18 +808,20 @@ function rememberPlacement(block) {
   system.runTimeout(() => placedTick.delete(key), 5);
 }
 
-function boxSpot(block) {
-  return { x: block.location.x, y: block.location.y, z: block.location.z };
-}
-
 listen(() => {
   world.beforeEvents.playerInteractWithBlock.subscribe((event) => {
     const block = event.block;
     const player = event.player;
     if (!player || !block || block.typeId !== BOX_ID) return;
-    // A tap while holding the box tries to place another one. Open this one instead.
-    event.cancel = true;
-    queueOpen(player, boxSpot(block));
+    let held;
+    try {
+      held = event.itemStack && event.itemStack.typeId;
+    } catch (error) {
+      held = undefined;
+    }
+    // Cancel only when the player would place an item. An empty-hand tap stays a real interaction.
+    if (shouldCancelBoxUse(held)) event.cancel = true;
+    scheduleOpen(player, dimensionIdOf(block), block.location);
   });
 });
 
@@ -799,7 +832,7 @@ listen(() => {
     if (!player || !block || block.typeId !== BOX_ID) return;
     if (sneaking(player)) return;
     event.cancel = true;
-    queueOpen(player, boxSpot(block));
+    scheduleOpen(player, dimensionIdOf(block), block.location);
   });
 });
 
@@ -809,7 +842,7 @@ listen(() => {
     const block = event.hitBlock;
     if (!player || player.typeId !== "minecraft:player" || !block || block.typeId !== BOX_ID) return;
     if (sneaking(player)) return;
-    queueOpen(player, boxSpot(block));
+    scheduleOpen(player, dimensionIdOf(block), block.location);
   });
 });
 
@@ -817,7 +850,7 @@ world.afterEvents.playerInteractWithBlock.subscribe((event) => {
   const block = event.block;
   const player = event.player;
   if (!player || !block || block.typeId !== BOX_ID) return;
-  queueOpen(player, boxSpot(block));
+  scheduleOpen(player, dimensionIdOf(block), block.location);
 });
 
 world.afterEvents.playerPlaceBlock.subscribe((event) => {
@@ -857,7 +890,7 @@ world.beforeEvents.chatSend.subscribe((event) => {
     event.cancel = true;
     const token = playerToken(player);
     system.runTimeout(() => {
-      const current = findPlayer(token, player);
+      const current = playerFromToken(token, player);
       if (!current) return;
       try {
         applyConnect(current, message);
@@ -871,7 +904,7 @@ world.beforeEvents.chatSend.subscribe((event) => {
   if (!text || text.startsWith("/")) return;
   const token = playerToken(player);
   system.runTimeout(() => {
-    const current = findPlayer(token, player);
+    const current = playerFromToken(token, player);
     if (!current) return;
     try {
       hearChat(current, text);
