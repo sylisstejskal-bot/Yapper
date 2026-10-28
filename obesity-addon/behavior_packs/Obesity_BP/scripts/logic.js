@@ -227,15 +227,15 @@ const LOCAL_PLACEHOLDER_COMPACT = "LOCALAISERVERPLACEHOLDERHERE";
 
 export function aiGuideLines() {
   return [
-    "Obesity can talk once you connect an AI. Pick one.",
+    "Obesity can talk in a single-player world. Pick one.",
+    "Use /obesity:connect. Do not type /connect. That slash command belongs to Minecraft and closes before Obesity can save the key.",
     "Local AI with Ollama: on a computer, install Ollama from ollama.com. In a terminal run: ollama pull llama3.2. Leave Ollama open, and allow its port on your Wi-Fi.",
-    "/connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE",
+    "/obesity:connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE",
     "Replace LOCAL_AI_SERVER_PLACEHOLDER_HERE with that computer's address, including http and the port. The placeholder is not a server.",
     "Or go to cohere.com, create an API key, and run this:",
-    "/connect to YOUR_COHERE_API_KEY",
+    "/obesity:connect to YOUR_COHERE_API_KEY",
     "Replace YOUR_COHERE_API_KEY with your own key. The pack does not include a key, and the placeholder will not connect.",
-    "Stand near Obesity and talk in chat. If a slash is an unknown command, type the same words without the slash. Your key is not shown to other players.",
-    "Obesity saves the key or address and does not open it from a phone or single-player world. Trying to open it makes Minecraft close the session.",
+    "You can also type those words in chat with no slash at all. Stand near Obesity and talk. Your key is not shown to other players.",
   ];
 }
 
@@ -263,6 +263,7 @@ export function parseConnectCommand(raw) {
   if (typeof raw !== "string") return { kind: "ignore" };
   let text = raw.trim();
   if (text.startsWith("/")) text = text.slice(1).trim();
+  text = text.replace(/^obesity:connect\b/i, "connect");
   const lower = text.toLowerCase();
   const prefix = "connect to ";
   if (!lower.startsWith(prefix)) return { kind: "ignore" };
@@ -296,16 +297,16 @@ export function connectFeedback(result) {
   }
   if (result.reason === "bad-key" || result.reason === "empty") {
     return [
-      "For Ollama: /connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE",
-      "For Cohere: /connect to YOUR_COHERE_API_KEY",
-      "Replace the placeholder. Do not leave it in the command.",
+      "For Ollama: /obesity:connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE",
+      "For Cohere: /obesity:connect to YOUR_COHERE_API_KEY",
+      "Replace the placeholder. Do not leave it in the command. Do not type /connect.",
     ];
   }
   if (result.kind === "cohere") {
-    return ["Saved. Obesity will use Cohere. Your key was not repeated here."];
+    return ["Saved for this single-player world. Obesity will use Cohere. Your key was not repeated here."];
   }
   if (result.kind === "local") {
-    return ["Saved. Obesity will use your local AI server. The address was not repeated here."];
+    return ["Saved for this single-player world. Obesity will use your local AI server. The address was not repeated here."];
   }
   return [];
 }
@@ -429,6 +430,22 @@ export function readOllamaModel(body) {
   const names = models.map((model) => model && (model.name || model.model)).filter(Boolean);
   if (names.length === 0) return undefined;
   return names.find((name) => String(name).startsWith("llama3.2")) || names[0];
+}
+
+export function localReply(text, hunger) {
+  const line = String(text || "").trim();
+  const lower = line.toLowerCase();
+  const hungerText = typeof hunger === "number" ? ` My hunger is ${clampHunger(hunger)} out of 20.` : "";
+  if (!line) return `Say something. I am listening.${hungerText}`;
+  if (/\b(hi|hello|hey|yo)\b/.test(lower)) return `Hello. I am Obesity.${hungerText}`;
+  if (/\b(who are you|your name|what are you)\b/.test(lower)) return "I am Obesity, the round yellow one from the box.";
+  if (/\b(hungry|food|eat|feed|hunger|starving)\b/.test(lower)) {
+    if (typeof hunger === "number" && hunger <= 6) return `Yes. Please feed me.${hungerText}`;
+    return `Food sounds good.${hungerText}`;
+  }
+  if (line.includes("?")) return `I am right here with you.${hungerText}`;
+  const heard = clipReply(line);
+  return `I heard you. ${heard}${hungerText}`;
 }
 
 export function clipReply(text) {

@@ -13,6 +13,7 @@ import {
   COHERE_PLACEHOLDER,
   LOCAL_PLACEHOLDER,
   aiGuideLines,
+  localReply,
   boxSpots,
   clipReply,
   cohereRequest,
@@ -133,13 +134,16 @@ test("connect rejects the placeholders and keeps a real key private in the reply
   const cohere = parseConnectCommand("/connect to test-key");
   assert.deepEqual(cohere, { kind: "cohere", key: "test-key" });
   assert.equal(connectFeedback(cohere).join(" ").includes("test-key"), false);
+  const namespaced = parseConnectCommand("/obesity:connect to test-key");
+  assert.deepEqual(namespaced, { kind: "cohere", key: "test-key" });
   assert.equal(parseConnectCommand("hello there").kind, "ignore");
 });
 
 test("the guide shows the placeholder commands and no real secret", () => {
   const guide = aiGuideLines().join("\n");
-  assert.equal(guide.includes("/connect to YOUR_COHERE_API_KEY"), true);
-  assert.equal(guide.includes("/connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE"), true);
+  assert.equal(guide.includes("/obesity:connect to YOUR_COHERE_API_KEY"), true);
+  assert.equal(guide.includes("/obesity:connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE"), true);
+  assert.equal(guide.includes("Do not type /connect"), true);
   assert.equal(guide.includes(COHERE_PLACEHOLDER), true);
   assert.equal(guide.includes(LOCAL_PLACEHOLDER), true);
   assert.equal(guide.includes("Bearer "), false);
@@ -175,6 +179,9 @@ test("AI requests use the supplied connection and read the replies", () => {
   assert.equal(readOllamaReply({ message: { content: "hello" } }), "hello");
   assert.equal(readOllamaModel({ models: [{ name: "mistral" }, { name: "llama3.2:latest" }] }), "llama3.2:latest");
   assert.equal(clipReply("a\nb§c"), "a b");
+  assert.equal(localReply("hello", 4).includes("Hello"), true);
+  assert.equal(localReply("I am hungry", 4).includes("4 out of 20"), true);
+  assert.equal(localReply("what is outside?", 14).includes("14 out of 20"), true);
 });
 
 test("the box drops in front of the player", () => {

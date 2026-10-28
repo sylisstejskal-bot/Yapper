@@ -36,7 +36,7 @@ The chat guide uses placeholders. Replace them. The pack does not contain a Cohe
 4. In Minecraft, run:
 
 ```
-/connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE
+/obesity:connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE
 ```
 
 Replace `LOCAL_AI_SERVER_PLACEHOLDER_HERE` with that computer's address, including `http://` and the port. The placeholder is not a server, and the pack will refuse it.
@@ -44,15 +44,17 @@ Replace `LOCAL_AI_SERVER_PLACEHOLDER_HERE` with that computer's address, includi
 **Cohere**
 
 1. Go to [cohere.com](https://cohere.com), create an account, and make an API key.
-2. In Minecraft, run:
+2. In a single-player world, run:
 
 ```
-/connect to YOUR_COHERE_API_KEY
+/obesity:connect to YOUR_COHERE_API_KEY
 ```
 
-Replace `YOUR_COHERE_API_KEY` with your key. Do not leave the placeholder in the command. The key is not printed back to chat. Obesity stores it and does not open a network call. Opening Cohere from a phone or single-player world makes Minecraft close the session.
+Replace `YOUR_COHERE_API_KEY` with your key. Do not leave the placeholder in the command. The key is not printed back to chat.
 
-If Minecraft says the slash command is unknown, type the same words with no slash. Stand near Obesity and talk in normal chat. Obesity will confirm the key is saved.
+Do not type `/connect`. That command is Minecraft's websocket connection. In a single-player world it closes immediately, which is the "connection closed" message. `/obesity:connect` stays in the world and saves the key. You can also type `connect to` and the key in chat with no slash.
+
+Stand near Obesity and talk. Obesity asks Cohere when the world can open it, and still answers in the world when it cannot.
 
 ```
 Y . Y

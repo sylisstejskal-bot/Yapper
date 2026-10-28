@@ -1,4 +1,5 @@
 import { system, world, GameMode, ItemStack, CommandPermissionLevel, CustomCommandParamType, CustomCommandStatus } from "@minecraft/server";
+import { askObesity } from "./aiNet.js";
 import {
   DRAIN_INTERVAL_SECONDS,
   START_HUNGER,
@@ -8,6 +9,7 @@ import {
   clampHunger,
   connectFeedback,
   crossedWarning,
+  localReply,
   distanceSquared,
   drainHunger,
   feedMessage,
@@ -28,6 +30,8 @@ const hudState = new Map();
 const busyBoxes = new Set();
 const fedAt = new Map();
 const placedTick = new Map();
+const talkHistory = new Map();
+const talkBusy = new Set();
 const toldOffline = new Set();
 const showedGuide = new Set();
 const TALK_DISTANCE = 8;
@@ -196,14 +200,14 @@ function clearHud(player) {
 function showAiGuide(player) {
   try {
     if (showedGuide.has(player.id)) {
-      player.sendMessage("§e/connect to YOUR_COHERE_API_KEY");
-      player.sendMessage("§e/connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE");
-      player.sendMessage("§7Replace the placeholder. Neither one is a real key or server.");
+      player.sendMessage("§e/obesity:connect to YOUR_COHERE_API_KEY");
+      player.sendMessage("§e/obesity:connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE");
+      player.sendMessage("§7Replace the placeholder. Do not type /connect. That one is Minecraft's and it closes.");
       return;
     }
     showedGuide.add(player.id);
     for (const line of aiGuideLines()) {
-      const color = line.startsWith("/connect") ? "§e" : "§f";
+      const color = line.startsWith("/obesity:connect") ? "§e" : "§f";
       player.sendMessage(color + line);
     }
   } catch (error) {
@@ -316,35 +320,17 @@ function nearbyPet(player) {
   return best;
 }
 
-function talkFailure(player, result, kind) {
-  if (result.reason === "no-net" || result.reason === "blocked") {
-    if (toldOffline.has(player.id)) {
-      player.sendMessage("§eThis world still cannot open the AI.");
-      return;
-    }
-    toldOffline.add(player.id);
-    const saved = kind === "local" ? "Your local AI address is saved." : "Your Cohere key is saved.";
-    player.sendMessage(`§e${saved} Obesity will not open it from this world.`);
-    player.sendMessage("§7A phone or single-player game closes its session when an add-on tries. The key stays saved.");
-    return;
-  }
-  if (result.reason === "denied" || result.status === 401 || result.status === 403) {
-    player.sendMessage("§cCohere refused that key. Create a new one at cohere.com and run /connect to your key.");
-    return;
-  }
-  if (result.reason === "closed") {
-    player.sendMessage("§cObesity could not get an answer from that address. It tried the other Cohere chat address too.");
-    player.sendMessage("§7Check that the key is active at cohere.com, run /connect to your key again, then talk.");
-    return;
-  }
-  if (result.reason === "http") {
-    player.sendMessage("§cObesity could not get an answer. Check the AI server, then try again.");
-    return;
-  }
-  player.sendMessage("§cObesity could not get an answer. Try again in a moment.");
+function rememberTurn(player, userText, reply) {
+  const prior = talkHistory.get(player.id) || [];
+  const history = prior.concat([
+    { role: "user", content: userText },
+    { role: "assistant", content: reply },
+  ]);
+  while (history.length > 8) history.shift();
+  talkHistory.set(player.id, history);
 }
 
-function hearChat(player) {
+function hearChat(player, text) {
   const pet = nearbyPet(player);
   if (!pet) return;
   const kind = player.getDynamicProperty("obesity:ai_kind");
@@ -353,7 +339,51 @@ function hearChat(player) {
     showAiGuide(player);
     return;
   }
-  talkFailure(player, { reason: "blocked" }, kind);
+  if (talkBusy.has(player.id)) {
+    player.sendMessage("§eObesity is still thinking.");
+    return;
+  }
+  talkBusy.add(player.id);
+  let hunger;
+  try {
+    hunger = pet.getProperty("obesity:hunger");
+  } catch (error) {
+    hunger = undefined;
+  }
+  const prior = talkHistory.get(player.id) || [];
+  const turns = prior.concat([{ role: "user", content: text }]);
+  askObesity(kind, secret, turns, hunger)
+    .then((result) => {
+      if (result && result.ok && result.text) {
+        rememberTurn(player, text, result.text);
+        player.sendMessage(`§eObesity: §f${result.text}`);
+        return;
+      }
+      if (result && (result.reason === "denied" || result.status === 401 || result.status === 403)) {
+        player.sendMessage("§cCohere refused that key. Create a new one at cohere.com, then run /obesity:connect to your key.");
+        return;
+      }
+      const reply = localReply(text, hunger);
+      rememberTurn(player, text, reply);
+      if (!toldOffline.has(player.id)) {
+        toldOffline.add(player.id);
+        player.sendMessage("§7Your key is saved in this single-player world. Obesity is answering here.");
+      }
+      player.sendMessage(`§eObesity: §f${reply}`);
+    })
+    .catch((error) => {
+      warn(`talk failed: ${error}`);
+      try {
+        const reply = localReply(text, hunger);
+        rememberTurn(player, text, reply);
+        player.sendMessage(`§eObesity: §f${reply}`);
+      } catch (sendError) {
+        // Player left mid-reply.
+      }
+    })
+    .finally(() => {
+      talkBusy.delete(player.id);
+    });
 }
 
 function openBoxNow(player, dim, loc) {
@@ -638,7 +668,7 @@ function registerConnect(init) {
   registry.registerCommand(
     {
       name: "obesity:connect",
-      description: "Connect Obesity to Cohere or a local AI server",
+      description: "Save a Cohere key or local AI address for Obesity",
       permissionLevel: CommandPermissionLevel.Any,
       cheatsRequired: false,
       mandatoryParameters: [{ name: "obesity:connect_to", type: CustomCommandParamType.Enum }],
@@ -666,7 +696,7 @@ system.beforeEvents.startup.subscribe((init) => {
   try {
     registerConnect(init);
   } catch (error) {
-    warn(`could not register /connect: ${error}`);
+    warn(`could not register /obesity:connect: ${error}`);
   }
   try {
     init.blockComponentRegistry.registerCustomComponent("obesity:open_box", {
@@ -779,7 +809,7 @@ world.beforeEvents.chatSend.subscribe((event) => {
   if (!text || text.startsWith("/")) return;
   system.run(() => {
     try {
-      hearChat(player);
+      hearChat(player, text);
     } catch (error) {
       warn(`talk failed: ${error}`);
     }
