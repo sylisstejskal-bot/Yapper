@@ -449,15 +449,26 @@ function savedAi(player) {
   return { kind, secret };
 }
 
-function aiMissed(player) {
+function quietPet(entity) {
+  if (!entity) return;
+  try {
+    speechUntil.delete(entity.id);
+    entity.nameTag = "§eObesity";
+  } catch (error) {
+    // The chat line still explains the result.
+  }
+}
+
+function aiMissed(player, entity) {
+  quietPet(entity);
   if (toldOffline.has(player.id)) {
-    showNotice(player, ["The AI did not answer."]);
+    showNotice(player, ["This world still cannot open the AI. Your key was not refused."]);
     return;
   }
   toldOffline.add(player.id);
   showNotice(player, [
-    "The AI did not answer from this world.",
-    "Obesity will not fill in a pre-made line.",
+    "Your key was not refused.",
+    "This phone world cannot open Cohere, so the AI never saw the message.",
   ]);
 }
 
@@ -498,7 +509,7 @@ function requestSpeech(player, entity, text) {
     if (finished) return;
     finished = true;
     talkBusy.delete(player.id);
-    aiMissed(player);
+    aiMissed(player, entity);
   }, 160);
   askObesity(saved.kind, saved.secret, turns, hunger)
     .then((result) => {
@@ -516,16 +527,17 @@ function requestSpeech(player, entity, text) {
         return;
       }
       if (result && (result.reason === "denied" || result.status === 401 || result.status === 403)) {
+        quietPet(entity);
         showNotice(player, ["Cohere refused that key. Create a new one, then run /obesity:connect to your key."]);
         return;
       }
-      aiMissed(player);
+      aiMissed(player, entity);
     })
     .catch((error) => {
       warn(`talk failed: ${error}`);
       if (finished) return;
       finished = true;
-      aiMissed(player);
+      aiMissed(player, entity);
     })
     .finally(() => {
       talkBusy.delete(player.id);
