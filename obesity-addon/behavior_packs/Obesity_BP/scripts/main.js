@@ -1,0 +1,557 @@
+import { system, world, GameMode, ItemStack } from "@minecraft/server";
+import {
+  DRAIN_INTERVAL_SECONDS,
+  START_HUNGER,
+  applyFeed,
+  clampHunger,
+  crossedWarning,
+  drainHunger,
+  feedMessage,
+  foodPoints,
+  hungerDisplay,
+  leftoverFor,
+  sameOwner,
+  shouldTeleport,
+} from "./logic.js";
+
+const BOX_ID = "obesity:box";
+const PET_ID = "obesity:obesity";
+const DIMS = ["overworld", "nether", "the_end"];
+
+const hudState = new Map();
+const busyBoxes = new Set();
+const fedAt = new Map();
+
+function warn(message) {
+  console.warn(`[Obesity] ${message}`);
+}
+
+function boxKey(dim, loc) {
+  return `${dim.id}:${loc.x},${loc.y},${loc.z}`;
+}
+
+function nutritionOf(item) {
+  try {
+    const food = item.getComponent("minecraft:food");
+    if (food && typeof food.nutrition === "number") return food.nutrition;
+  } catch (error) {
+    // Not every item exposes a food component.
+  }
+  return undefined;
+}
+
+function holdingBox(player) {
+  try {
+    const inventory = player.getComponent("minecraft:inventory");
+    const stack = inventory && inventory.container ? inventory.container.getItem(player.selectedSlotIndex) : undefined;
+    return Boolean(stack && stack.typeId === BOX_ID);
+  } catch (error) {
+    return false;
+  }
+}
+
+function giveOrDrop(player, typeId, amount) {
+  const stack = new ItemStack(typeId, amount || 1);
+  try {
+    const inventory = player.getComponent("minecraft:inventory");
+    if (inventory && inventory.container) {
+      const leftover = inventory.container.addItem(stack);
+      if (!leftover) return;
+      player.dimension.spawnItem(leftover, player.location);
+      return;
+    }
+  } catch (error) {
+    warn(`could not give ${typeId}: ${error}`);
+  }
+  try {
+    player.dimension.spawnItem(stack, player.location);
+  } catch (error) {
+    warn(`could not drop ${typeId}: ${error}`);
+  }
+}
+
+function takeOne(player, typeId) {
+  const mode = player.getGameMode();
+  if (mode === GameMode.creative || mode === GameMode.spectator) return true;
+  const inventory = player.getComponent("minecraft:inventory");
+  if (!inventory || !inventory.container) return false;
+  const slot = player.selectedSlotIndex;
+  const stack = inventory.container.getItem(slot);
+  if (!stack || stack.typeId !== typeId) return false;
+  const leftoverId = leftoverFor(typeId);
+  if (stack.amount > 1) {
+    stack.amount -= 1;
+    inventory.container.setItem(slot, stack);
+    if (leftoverId) giveOrDrop(player, leftoverId, 1);
+  } else if (leftoverId) {
+    inventory.container.setItem(slot, new ItemStack(leftoverId, 1));
+  } else {
+    inventory.container.setItem(slot, undefined);
+  }
+  return true;
+}
+
+function playAt(dim, sound, loc, pitch, volume) {
+  try {
+    dim.playSound(sound, loc, { pitch: pitch, volume: volume });
+  } catch (error) {
+    // Vanilla sound ids differ slightly between versions; the gameplay still works.
+  }
+}
+
+function burst(dim, particle, loc, count, spread, lift) {
+  for (let i = 0; i < count; i++) {
+    try {
+      dim.spawnParticle(particle, {
+        x: loc.x + (Math.random() - 0.5) * spread,
+        y: loc.y + lift + Math.random() * spread,
+        z: loc.z + (Math.random() - 0.5) * spread,
+      });
+    } catch (error) {
+      return;
+    }
+  }
+}
+
+function rememberOwner(entity, player) {
+  try {
+    entity.setDynamicProperty("obesity:owner_id", player.id);
+    entity.setDynamicProperty("obesity:owner_name", player.name);
+  } catch (error) {
+    warn(`could not remember owner: ${error}`);
+  }
+  try {
+    const tame = entity.getComponent("minecraft:tameable");
+    if (tame && !tame.isTamed) tame.tame(player);
+  } catch (error) {
+    warn(`could not tame Obesity: ${error}`);
+  }
+}
+
+function findPlayer(ownerId, ownerName) {
+  for (const player of world.getPlayers()) {
+    if (sameOwner({ id: ownerId, name: ownerName }, player)) return player;
+  }
+  return undefined;
+}
+
+function showHud(player, title, subtitle) {
+  const now = system.currentTick;
+  const prev = hudState.get(player.id);
+  if (prev && prev.title === title && prev.subtitle === subtitle && now - prev.at < 80) return;
+  player.onScreenDisplay.setTitle(title, {
+    subtitle,
+    fadeInDuration: 0,
+    stayDuration: 140,
+    fadeOutDuration: 0,
+  });
+  hudState.set(player.id, { title, subtitle, at: now });
+}
+
+function clearHud(player) {
+  const prev = hudState.get(player.id);
+  if (!prev) return;
+  if (prev.holdUntil && system.currentTick < prev.holdUntil) return;
+  hudState.delete(player.id);
+  try {
+    player.onScreenDisplay.setTitle("", {
+      subtitle: "",
+      fadeInDuration: 0,
+      stayDuration: 0,
+      fadeOutDuration: 0,
+    });
+  } catch (error) {
+    warn(`could not clear hunger bar: ${error}`);
+  }
+}
+
+function welcome(player) {
+  try {
+    if (player.hasTag("obesity_welcomed")) return;
+    giveOrDrop(player, BOX_ID, 1);
+    player.addTag("obesity_welcomed");
+    player.sendMessage("§6Obesity§f put a sealed box in your inventory.");
+    player.sendMessage("§fPlace it, switch to an empty hand, and tap the box. A chubby yellow creature pops out. Hold food and tap them. The bar at the top of the screen is Obesity's hunger.");
+  } catch (error) {
+    warn(`welcome failed: ${error}`);
+  }
+}
+
+function openBoxNow(player, dim, loc) {
+  const key = boxKey(dim, loc);
+  if (busyBoxes.has(key)) return;
+  if (holdingBox(player)) {
+    try {
+      player.onScreenDisplay.setActionBar("§ePut the box away, then tap it to open");
+    } catch (error) {
+      // Action bar is a hint. Opening still works on the next empty-hand tap.
+    }
+    return;
+  }
+  let block;
+  try {
+    block = dim.getBlock(loc);
+  } catch (error) {
+    return;
+  }
+  if (!block || block.typeId !== BOX_ID) return;
+  busyBoxes.add(key);
+  system.runTimeout(() => busyBoxes.delete(key), 20);
+
+  const pos = { x: loc.x + 0.5, y: loc.y, z: loc.z + 0.5 };
+  try {
+    dim.setBlockType(loc, "minecraft:air");
+  } catch (error) {
+    busyBoxes.delete(key);
+    warn(`could not open box: ${error}`);
+    return;
+  }
+
+  let entity;
+  try {
+    entity = dim.spawnEntity(PET_ID, pos);
+  } catch (error) {
+    try {
+      dim.setBlockType(loc, BOX_ID);
+    } catch (restoreError) {
+      warn(`could not restore box: ${restoreError}`);
+    }
+    busyBoxes.delete(key);
+    warn(`could not spawn Obesity: ${error}`);
+    try {
+      player.sendMessage("§cThe box rattles, but Obesity will not come out. Try again.");
+    } catch (messageError) {
+      // Player may have left.
+    }
+    return;
+  }
+
+  try {
+    entity.teleport(pos, { facingLocation: player.location });
+  } catch (error) {
+    // Facing is cosmetic. The pet still exists.
+  }
+  try {
+    entity.nameTag = "§eObesity";
+    entity.setProperty("obesity:hunger", START_HUNGER);
+    entity.setProperty("obesity:eating", false);
+    entity.setProperty("obesity:fresh", true);
+  } catch (error) {
+    warn(`could not set up Obesity: ${error}`);
+  }
+  rememberOwner(entity, player);
+  system.runTimeout(() => {
+    try {
+      entity.setProperty("obesity:fresh", false);
+    } catch (error) {
+      // The pet was removed during the pop animation.
+    }
+  }, 16);
+
+  playAt(dim, "random.chestopen", pos, 0.9, 1);
+  playAt(dim, "random.pop", pos, 1.25, 0.8);
+  burst(dim, "minecraft:heart_particle", pos, 8, 0.8, 0.3);
+  try {
+    player.sendMessage("§eObesity tumbles out, already eyeing your food.");
+    player.onScreenDisplay.setActionBar("§eHold food and tap Obesity");
+    const display = hungerDisplay(START_HUNGER, 1);
+    showHud(player, display.title, display.subtitle);
+  } catch (error) {
+    warn(`could not announce Obesity: ${error}`);
+  }
+}
+
+function tryOpen(player, dim, loc) {
+  system.run(() => {
+    try {
+      openBoxNow(player, dim, loc);
+    } catch (error) {
+      warn(`open failed: ${error}`);
+    }
+  });
+}
+
+function selectedFood(player) {
+  const inventory = player.getComponent("minecraft:inventory");
+  if (!inventory || !inventory.container) return undefined;
+  const stack = inventory.container.getItem(player.selectedSlotIndex);
+  if (!stack) return undefined;
+  const points = foodPoints(stack.typeId, nutritionOf(stack));
+  if (points <= 0) return undefined;
+  return { stack, points };
+}
+
+function feedOrHint(entity, player) {
+  const ownerId = entity.getDynamicProperty("obesity:owner_id");
+  if (!ownerId) rememberOwner(entity, player);
+  const last = fedAt.get(entity.id) || 0;
+  if (system.currentTick - last < 8) return;
+
+  let hunger = clampHunger(entity.getProperty("obesity:hunger"));
+  const food = selectedFood(player);
+  if (!food) {
+    const hint =
+      hunger <= 0
+        ? "§cObesity is starving. Hold food and tap them."
+        : hunger >= 20
+          ? "§aObesity is stuffed."
+          : "§eHold food and tap Obesity.";
+    player.onScreenDisplay.setActionBar(hint);
+    playAt(entity.dimension, "random.burp", entity.location, hunger <= 6 ? 0.55 : 0.8, 0.35);
+    return;
+  }
+
+  const result = applyFeed(hunger, food.points);
+  if (result.status === "stuffed") {
+    player.onScreenDisplay.setActionBar(feedMessage(result, food.stack.typeId));
+    return;
+  }
+  if (!takeOne(player, food.stack.typeId)) return;
+  fedAt.set(entity.id, system.currentTick);
+  entity.setProperty("obesity:hunger", result.hunger);
+  entity.setProperty("obesity:eating", true);
+  system.runTimeout(() => {
+    try {
+      entity.setProperty("obesity:eating", false);
+    } catch (error) {
+      // Pet unloaded or died mid-bite.
+    }
+  }, 16);
+
+  const tag = result.hunger <= 0 ? "§cObesity" : result.hunger <= 6 ? "§6Obesity" : "§eObesity";
+  entity.nameTag = tag;
+  if (result.hunger > 0) {
+    try {
+      entity.removeEffect("slowness");
+    } catch (error) {
+      // Effect was already gone.
+    }
+  }
+  playAt(entity.dimension, "random.eat", entity.location, 0.85 + Math.random() * 0.3, 1);
+  if (result.status === "stuffed_now") playAt(entity.dimension, "random.burp", entity.location, 0.7, 1);
+  burst(entity.dimension, "minecraft:heart_particle", entity.location, 4, 0.6, 1);
+  player.onScreenDisplay.setActionBar(feedMessage(result, food.stack.typeId));
+  player.sendMessage(feedMessage(result, food.stack.typeId));
+  const display = hungerDisplay(result.hunger, 1);
+  showHud(player, display.title, display.subtitle);
+}
+
+function eachPet(fn) {
+  for (const name of DIMS) {
+    let dim;
+    try {
+      dim = world.getDimension(name);
+    } catch (error) {
+      continue;
+    }
+    let list;
+    try {
+      list = dim.getEntities({ type: PET_ID });
+    } catch (error) {
+      continue;
+    }
+    for (const entity of list) fn(entity);
+  }
+}
+
+function tickPet(entity, drain) {
+  let hunger = clampHunger(entity.getProperty("obesity:hunger"));
+  const before = hunger;
+  if (drain && hunger > 0) {
+    hunger = drainHunger(hunger);
+    entity.setProperty("obesity:hunger", hunger);
+  }
+  const tag = hunger <= 0 ? "§cObesity" : hunger <= 6 ? "§6Obesity" : "§eObesity";
+  if (entity.nameTag !== tag) entity.nameTag = tag;
+  if (hunger <= 0) {
+    try {
+      entity.addEffect("slowness", 50, { amplifier: 3, showParticles: false });
+    } catch (error) {
+      // Effect API can reject an unknown id on older engines.
+    }
+  } else {
+    try {
+      entity.removeEffect("slowness");
+    } catch (error) {
+      // Nothing to clear.
+    }
+  }
+  const ownerId = entity.getDynamicProperty("obesity:owner_id");
+  const ownerName = entity.getDynamicProperty("obesity:owner_name");
+  const owner = findPlayer(ownerId, ownerName);
+  if (owner) {
+    const sameDim = entity.dimension.id === owner.dimension.id;
+    if (!sameDim || shouldTeleport(entity.location, owner.location)) {
+      try {
+        entity.teleport(
+          { x: owner.location.x + 1, y: owner.location.y, z: owner.location.z },
+          { dimension: owner.dimension, facingLocation: owner.location }
+        );
+      } catch (error) {
+        // Cross-dimension teleports are not available on every engine.
+      }
+    }
+    if (drain) {
+      for (const warning of crossedWarning(before, hunger)) {
+        if (warning === "starving") owner.sendMessage("§cObesity is starving and can barely move. Feed them any food.");
+        if (warning === "hungry") owner.sendMessage("§6Obesity's tummy is rumbling.");
+      }
+    }
+  }
+  return { hunger, ownerId, ownerName };
+}
+
+let pulse = 0;
+let started = false;
+
+function startLoop() {
+  if (started) return;
+  started = true;
+  system.runInterval(() => {
+    try {
+      pulse += 1;
+      const drain = pulse % DRAIN_INTERVAL_SECONDS === 0;
+      const records = [];
+      eachPet((entity) => {
+        try {
+          const record = tickPet(entity, drain);
+          if (record) records.push(record);
+          if (record && record.hunger <= 6 && record.hunger > 0 && pulse % 5 === 0 && Math.random() < 0.35) {
+            playAt(entity.dimension, "random.burp", entity.location, 0.55, 0.3);
+          }
+        } catch (error) {
+          warn(`pet tick failed: ${error}`);
+        }
+      });
+      for (const player of world.getPlayers()) {
+        try {
+          if (player.getGameMode() === GameMode.spectator) continue;
+          const mine = records.filter((record) => sameOwner({ id: record.ownerId, name: record.ownerName }, player));
+          if (mine.length === 0) {
+            clearHud(player);
+            continue;
+          }
+          let lowest = mine[0].hunger;
+          for (const record of mine) if (record.hunger < lowest) lowest = record.hunger;
+          const display = hungerDisplay(lowest, mine.length);
+          showHud(player, display.title, display.subtitle);
+        } catch (error) {
+          warn(`hud tick failed: ${error}`);
+        }
+      }
+    } catch (error) {
+      warn(`loop failed: ${error}`);
+    }
+  }, 20);
+}
+
+system.beforeEvents.startup.subscribe((init) => {
+  try {
+    init.blockComponentRegistry.registerCustomComponent("obesity:open_box", {
+      onPlayerInteract(event) {
+        const player = event.player;
+        const block = event.block;
+        if (!player || !block) return;
+        const dim = block.dimension;
+        const loc = { x: block.location.x, y: block.location.y, z: block.location.z };
+        tryOpen(player, dim, loc);
+      },
+    });
+  } catch (error) {
+    warn(`could not register the box: ${error}`);
+  }
+});
+
+world.afterEvents.playerInteractWithBlock.subscribe((event) => {
+  const block = event.block;
+  const player = event.player;
+  if (!player || !block || block.typeId !== BOX_ID) return;
+  const dim = block.dimension;
+  const loc = { x: block.location.x, y: block.location.y, z: block.location.z };
+  tryOpen(player, dim, loc);
+});
+
+world.afterEvents.playerPlaceBlock.subscribe((event) => {
+  if (!event.block || event.block.typeId !== BOX_ID || !event.player) return;
+  const player = event.player;
+  system.run(() => {
+    try {
+      player.onScreenDisplay.setActionBar("§ePut the box away, then tap it to let Obesity out");
+    } catch (error) {
+      // Hint only.
+    }
+  });
+});
+
+world.afterEvents.playerInteractWithEntity.subscribe((event) => {
+  const target = event.target;
+  const player = event.player;
+  if (!player || !target || target.typeId !== PET_ID) return;
+  system.run(() => {
+    try {
+      feedOrHint(target, player);
+    } catch (error) {
+      warn(`feed failed: ${error}`);
+    }
+  });
+});
+
+world.afterEvents.playerSpawn.subscribe((event) => {
+  if (!event.initialSpawn) return;
+  const player = event.player;
+  system.run(() => welcome(player));
+});
+
+world.afterEvents.entitySpawn.subscribe((event) => {
+  const entity = event.entity;
+  if (!entity || entity.typeId !== PET_ID) return;
+  system.run(() => {
+    try {
+      if (!entity.nameTag) entity.nameTag = "§eObesity";
+      const hunger = entity.getProperty("obesity:hunger");
+      if (typeof hunger !== "number") entity.setProperty("obesity:hunger", START_HUNGER);
+    } catch (error) {
+      // Summon can race the property sync. The next tick fills it in.
+    }
+  });
+});
+
+world.afterEvents.entityDie.subscribe((event) => {
+  const dead = event.deadEntity;
+  if (!dead || dead.typeId !== PET_ID) return;
+  let ownerName;
+  let loc;
+  let dim;
+  try {
+    ownerName = dead.getDynamicProperty("obesity:owner_name");
+    loc = { x: dead.location.x, y: dead.location.y, z: dead.location.z };
+    dim = dead.dimension;
+  } catch (error) {
+    return;
+  }
+  if (dim && loc) playAt(dim, "random.burp", loc, 0.45, 1);
+  if (!ownerName) return;
+  for (const player of world.getPlayers()) {
+    if (player.name !== ownerName) continue;
+    try {
+      player.sendMessage("§cObesity collapsed. Place another box when you are ready.");
+      player.onScreenDisplay.setTitle("§cObesity collapsed", {
+        subtitle: "§7Place another box",
+        fadeInDuration: 0,
+        stayDuration: 70,
+        fadeOutDuration: 10,
+      });
+      hudState.set(player.id, {
+        title: "collapsed",
+        subtitle: "",
+        at: system.currentTick,
+        holdUntil: system.currentTick + 80,
+      });
+    } catch (error) {
+      warn(`death message failed: ${error}`);
+    }
+  }
+});
+
+world.afterEvents.worldLoad.subscribe(() => startLoop());
+system.runTimeout(() => startLoop(), 40);

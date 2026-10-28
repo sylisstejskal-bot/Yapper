@@ -1,0 +1,129 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.obesity.pop": {
+      "animation_length": 0.5,
+      "loop": false,
+      "bones": {
+        "root": {
+          "scale": {
+            "0.0": [0.15, 0.15, 0.15],
+            "0.22": [1.2, 0.78, 1.2],
+            "0.36": [0.94, 1.1, 0.94],
+            "0.5": [1, 1, 1]
+          }
+        }
+      }
+    },
+    "animation.obesity.idle": {
+      "animation_length": 2.0,
+      "loop": true,
+      "bones": {
+        "body": {
+          "scale": {
+            "0.0": [1, 1, 1],
+            "1.0": [1.04, 0.96, 1.05],
+            "2.0": [1, 1, 1]
+          },
+          "position": {
+            "0.0": [0, 0, 0],
+            "1.0": [0, 0.4, 0],
+            "2.0": [0, 0, 0]
+          }
+        }
+      }
+    },
+    "animation.obesity.look": {
+      "loop": true,
+      "bones": {
+        "head": {
+          "rotation": ["query.target_x_rotation * 0.6", "query.target_y_rotation * 0.7", 0]
+        }
+      }
+    },
+    "animation.obesity.walk": {
+      "animation_length": 1.0,
+      "loop": true,
+      "bones": {
+        "legL": {
+          "rotation": ["math.sin(query.anim_time * 560) * 32", 0, 0]
+        },
+        "legR": {
+          "rotation": ["math.sin(query.anim_time * 560) * -32", 0, 0]
+        },
+        "armL": {
+          "rotation": ["math.sin(query.anim_time * 560) * -28", 0, -12]
+        },
+        "armR": {
+          "rotation": ["math.sin(query.anim_time * 560) * 28", 0, 12]
+        },
+        "body": {
+          "rotation": [8, 0, "math.sin(query.anim_time * 560) * 7"],
+          "position": [0, "math.abs(math.sin(query.anim_time * 560)) * 1.1", 0]
+        }
+      }
+    },
+    "animation.obesity.hungry": {
+      "animation_length": 1.2,
+      "loop": true,
+      "bones": {
+        "head": {
+          "rotation": {
+            "0.0": [26, 0, 0],
+            "0.6": [32, 0, 0],
+            "1.2": [26, 0, 0]
+          }
+        },
+        "armL": {
+          "rotation": {
+            "0.0": [18, 0, -8],
+            "1.2": [18, 0, -8]
+          }
+        },
+        "armR": {
+          "rotation": {
+            "0.0": [18, 0, 8],
+            "1.2": [18, 0, 8]
+          }
+        }
+      }
+    },
+    "animation.obesity.eat": {
+      "animation_length": 0.7,
+      "loop": false,
+      "bones": {
+        "head": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.2": [24, 0, 0],
+            "0.45": [18, 0, 0],
+            "0.7": [0, 0, 0]
+          }
+        },
+        "armL": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.25": [-105, 0, -24],
+            "0.5": [-80, 0, -12],
+            "0.7": [0, 0, 0]
+          }
+        },
+        "armR": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "0.25": [-105, 0, 24],
+            "0.5": [-80, 0, 12],
+            "0.7": [0, 0, 0]
+          }
+        },
+        "body": {
+          "scale": {
+            "0.0": [1, 1, 1],
+            "0.25": [1.08, 0.92, 1.1],
+            "0.7": [1, 1, 1]
+          }
+        }
+      }
+    }
+  }
+}

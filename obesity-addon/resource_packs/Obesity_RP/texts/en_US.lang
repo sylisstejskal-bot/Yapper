@@ -1,0 +1,4 @@
+tile.obesity:box.name=Obesity Box
+item.obesity:box.name=Obesity Box
+entity.obesity:obesity.name=Obesity
+action.interact.feed=Feed

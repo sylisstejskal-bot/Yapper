@@ -1,0 +1,72 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.obesity": {
+      "initial_state": "idle",
+      "states": {
+        "idle": {
+          "animations": [
+            "idle",
+            "look",
+            { "pop": "query.property('obesity:fresh')" }
+          ],
+          "blend_transition": 0.2,
+          "transitions": [
+            { "eat": "query.property('obesity:eating')" },
+            { "hungry_walk": "query.modified_move_speed > 0.12 && query.property('obesity:hunger') <= 6" },
+            { "walk": "query.modified_move_speed > 0.12" },
+            { "hungry_idle": "query.property('obesity:hunger') <= 6" }
+          ]
+        },
+        "walk": {
+          "animations": [
+            "walk",
+            "look",
+            { "pop": "query.property('obesity:fresh')" }
+          ],
+          "blend_transition": 0.15,
+          "transitions": [
+            { "eat": "query.property('obesity:eating')" },
+            { "hungry_idle": "query.modified_move_speed < 0.08 && query.property('obesity:hunger') <= 6" },
+            { "hungry_walk": "query.property('obesity:hunger') <= 6" },
+            { "idle": "query.modified_move_speed < 0.08" }
+          ]
+        },
+        "hungry_idle": {
+          "animations": [
+            "idle",
+            "hungry",
+            { "pop": "query.property('obesity:fresh')" }
+          ],
+          "blend_transition": 0.25,
+          "transitions": [
+            { "eat": "query.property('obesity:eating')" },
+            { "hungry_walk": "query.modified_move_speed > 0.12" },
+            { "idle": "query.property('obesity:hunger') > 6" }
+          ]
+        },
+        "hungry_walk": {
+          "animations": [
+            "walk",
+            "hungry",
+            { "pop": "query.property('obesity:fresh')" }
+          ],
+          "blend_transition": 0.2,
+          "transitions": [
+            { "eat": "query.property('obesity:eating')" },
+            { "hungry_idle": "query.modified_move_speed < 0.08" },
+            { "walk": "query.property('obesity:hunger') > 6" }
+          ]
+        },
+        "eat": {
+          "animations": ["eat"],
+          "blend_transition": 0.08,
+          "transitions": [
+            { "hungry_idle": "!query.property('obesity:eating') && query.property('obesity:hunger') <= 6" },
+            { "idle": "!query.property('obesity:eating')" }
+          ]
+        }
+      }
+    }
+  }
+}
