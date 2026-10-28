@@ -3,7 +3,7 @@
 export const HUNGER_MAX = 20;
 export const START_HUNGER = 14;
 export const DRAIN_INTERVAL_SECONDS = 12;
-export const TELEPORT_DISTANCE = 24;
+export const TELEPORT_DISTANCE = 4;
 
 // Vanilla nutrition, used when the food component is missing.
 // Golden foods are overridden in foodPoints.
@@ -479,6 +479,13 @@ export function localReply(text, hunger) {
   if (line.includes("?")) return `I am right here with you.${hungerText}`;
   const heard = clipReply(line);
   return `I heard you. ${heard}${hungerText}`;
+}
+
+export function nameTagLine(reply) {
+  const clean = clipReply(reply);
+  if (!clean) return "Obesity";
+  const shown = clean.length > 42 ? `${clean.slice(0, 39)}...` : clean;
+  return `Obesity: ${shown}`;
 }
 
 export function clipReply(text) {

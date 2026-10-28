@@ -13,6 +13,7 @@ import {
   connectPhrase,
   crossedWarning,
   localReply,
+  nameTagLine,
   distanceSquared,
   drainHunger,
   feedMessage,
@@ -37,6 +38,7 @@ const placedTick = new Map();
 const talkHistory = new Map();
 const talkBusy = new Set();
 const toldOffline = new Set();
+const speechUntil = new Map();
 const showedGuide = new Set();
 const TALK_DISTANCE = 8;
 
@@ -223,13 +225,62 @@ function showSpeech(player, reply) {
   try {
     player.sendMessage(`§eObesity: §f${clean}`);
   } catch (error) {
-    // The action bar carries the same reply.
+    // The name tag and action bar carry the same reply.
   }
   try {
     player.onScreenDisplay.setActionBar(`§eObesity: ${actionBarText(clean)}`);
   } catch (error) {
     warn(`could not show Obesity's reply: ${error}`);
   }
+}
+
+function bringClose(entity, player) {
+  try {
+    const sameDim = entity.dimension.id === player.dimension.id;
+    if (sameDim && !shouldTeleport(entity.location, player.location)) return;
+    entity.teleport(
+      { x: player.location.x + 1, y: player.location.y, z: player.location.z },
+      { dimension: player.dimension, facingLocation: player.location }
+    );
+  } catch (error) {
+    // He stays where he is if this spot is blocked.
+  }
+}
+
+function sayLine(player, entity, reply) {
+  const clean = clipReply(reply) || "I am here.";
+  if (entity) {
+    try {
+      entity.nameTag = `§e${nameTagLine(clean)}`;
+      speechUntil.set(entity.id, system.currentTick + 100);
+    } catch (error) {
+      warn(`could not label Obesity: ${error}`);
+    }
+    bringClose(entity, player);
+  }
+  showSpeech(player, clean);
+}
+
+function ownedPet(player) {
+  const near = nearbyPet(player);
+  if (near) return near;
+  let found;
+  eachPet((entity) => {
+    if (found) return;
+    try {
+      const owned = sameOwner(
+        {
+          id: entity.getDynamicProperty("obesity:owner_id"),
+          name: entity.getDynamicProperty("obesity:owner_name"),
+        },
+        player
+      );
+      if (owned) found = entity;
+    } catch (error) {
+      // Skip a pet whose owner data is unreadable.
+    }
+  });
+  return found;
 }
 
 function playerToken(player) {
@@ -387,15 +438,9 @@ function rememberTurn(player, userText, reply) {
 }
 
 function hearChat(player, text) {
-  const pet = nearbyPet(player);
+  const pet = ownedPet(player);
   if (!pet) {
-    showNotice(player, ["Stand next to Obesity, then talk again."]);
-    return;
-  }
-  const kind = player.getDynamicProperty("obesity:ai_kind");
-  const secret = player.getDynamicProperty("obesity:ai_secret");
-  if ((kind !== "cohere" && kind !== "local") || typeof secret !== "string" || !secret) {
-    showAiGuide(player);
+    showNotice(player, ["Open the box, then tap Obesity or type in chat."]);
     return;
   }
   let hunger;
@@ -407,7 +452,10 @@ function hearChat(player, text) {
   const prior = talkHistory.get(player.id) || [];
   const reply = localReply(text, hunger);
   rememberTurn(player, text, reply);
-  showSpeech(player, reply);
+  sayLine(player, pet, reply);
+  const kind = player.getDynamicProperty("obesity:ai_kind");
+  const secret = player.getDynamicProperty("obesity:ai_secret");
+  if ((kind !== "cohere" && kind !== "local") || typeof secret !== "string" || !secret) return;
   if (talkBusy.has(player.id)) return;
   talkBusy.add(player.id);
   const turns = prior.concat([{ role: "user", content: text }]);
@@ -427,7 +475,7 @@ function hearChat(player, text) {
       }
       if (result && result.ok && result.text && result.text !== reply) {
         rememberTurn(player, text, result.text);
-        showSpeech(player, result.text);
+        sayLine(player, pet, result.text);
         return;
       }
       if (result && (result.reason === "denied" || result.status === 401 || result.status === 403) && !toldOffline.has(player.id)) {
@@ -512,8 +560,8 @@ function openBoxNow(player, dim, loc) {
   playAt(dim, "random.pop", pos, 1.25, 0.8);
   burst(dim, "minecraft:heart_particle", pos, 8, 0.8, 0.3);
   try {
-    showNotice(player, ["Obesity tumbles out. Hold food and tap them.", "To let them talk: /obesity:connect to YOUR_COHERE_API_KEY"]);
-    player.onScreenDisplay.setActionBar("§eHold food and tap Obesity");
+    showNotice(player, ["Obesity is out. Tap him and he will answer.", "You can also type to him in chat."]);
+    player.onScreenDisplay.setActionBar("§eTap Obesity");
     const display = hungerDisplay(START_HUNGER, 1);
     showHud(player, display.title, display.subtitle);
   } catch (error) {
@@ -588,13 +636,7 @@ function feedOrHint(entity, player) {
   let hunger = clampHunger(entity.getProperty("obesity:hunger"));
   const food = selectedFood(player);
   if (!food) {
-    const hint =
-      hunger <= 0
-        ? "§cObesity is starving. Hold food and tap them."
-        : hunger >= 20
-          ? "§aObesity is stuffed."
-          : "§eHold food and tap Obesity.";
-    player.onScreenDisplay.setActionBar(hint);
+    sayLine(player, entity, localReply(hunger <= 6 ? "hungry" : "hello", hunger));
     playAt(entity.dimension, "random.burp", entity.location, hunger <= 6 ? 0.55 : 0.8, 0.35);
     return;
   }
@@ -628,6 +670,7 @@ function feedOrHint(entity, player) {
   playAt(entity.dimension, "random.eat", entity.location, 0.85 + Math.random() * 0.3, 1);
   if (result.status === "stuffed_now") playAt(entity.dimension, "random.burp", entity.location, 0.7, 1);
   burst(entity.dimension, "minecraft:heart_particle", entity.location, 4, 0.6, 1);
+  sayLine(player, entity, localReply("food", result.hunger));
   player.onScreenDisplay.setActionBar(feedMessage(result, food.stack.typeId));
   player.sendMessage(feedMessage(result, food.stack.typeId));
   const display = hungerDisplay(result.hunger, 1);
@@ -660,7 +703,8 @@ function tickPet(entity, drain) {
     entity.setProperty("obesity:hunger", hunger);
   }
   const tag = hunger <= 0 ? "§cObesity" : hunger <= 6 ? "§6Obesity" : "§eObesity";
-  if (entity.nameTag !== tag) entity.nameTag = tag;
+  const talking = (speechUntil.get(entity.id) || 0) > system.currentTick;
+  if (!talking && entity.nameTag !== tag) entity.nameTag = tag;
   if (hunger <= 0) {
     try {
       entity.addEffect("slowness", 50, { amplifier: 3, showParticles: false });
@@ -903,7 +947,7 @@ world.beforeEvents.chatSend.subscribe((event) => {
   const text = message.trim();
   if (!text || text.startsWith("/")) return;
   const token = playerToken(player);
-  system.runTimeout(() => {
+  system.run(() => {
     const current = playerFromToken(token, player);
     if (!current) return;
     try {
@@ -911,7 +955,7 @@ world.beforeEvents.chatSend.subscribe((event) => {
     } catch (error) {
       warn(`talk failed: ${error}`);
     }
-  }, 5);
+  });
 });
 
 world.afterEvents.playerSpawn.subscribe((event) => {

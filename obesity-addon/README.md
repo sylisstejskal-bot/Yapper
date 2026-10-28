@@ -19,8 +19,9 @@ The same file works on Windows and consoles. On Windows you can also double-clic
 1. Join the world. The **Obesity Box** appears in front of you. You do not place the first one.
 2. Tap the box. Obesity tumbles out. Tapping it while you are still holding a box opens it. Crouch and hold if you want to mine the box and pick it back up.
 3. Look at the top of the screen. The bar is Obesity's hunger, from 0 to 20. Your own hunger bar stays above the hotbar.
-4. Hold any food and tap Obesity. The food is eaten (bowls and bottles are given back). Steak fills more than bread. A golden apple is a big meal, and an enchanted golden apple fills the bar.
-5. Hunger drops by 1 every 12 seconds. At 0, Obesity can barely move until you feed them. They follow you, and they walk toward food you hold.
+4. Tap Obesity with an empty hand. His answer appears above his head, in chat, and above the hotbar. You can also type to him in chat from anywhere in the world.
+5. Hold any food and tap Obesity to feed him. The food is eaten (bowls and bottles are given back). Steak fills more than bread. A golden apple is a big meal, and an enchanted golden apple fills the bar.
+6. Hunger drops by 1 every 12 seconds. At 0, Obesity can barely move until you feed them. He stays beside you and comes back if he gets a few blocks away.
 
 Breaking the box before you open it drops the box. You can craft another one: a chest in the middle, with yellow wool on the four corners. If Obesity collapses, a new box drops in front of you.
 

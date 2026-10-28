@@ -14,6 +14,7 @@ import {
   LOCAL_PLACEHOLDER,
   aiGuideLines,
   localReply,
+  nameTagLine,
   boxSpots,
   clipReply,
   cohereRequest,
@@ -194,6 +195,7 @@ test("AI requests use the supplied connection and read the replies", () => {
   assert.equal(localReply("hello", 4).includes("Hello"), true);
   assert.equal(localReply("I am hungry", 4).includes("4 out of 20"), true);
   assert.equal(localReply("what is outside?", 14).includes("14 out of 20"), true);
+  assert.equal(nameTagLine("hello there").startsWith("Obesity:"), true);
 });
 
 test("the box drops in front of the player", () => {
@@ -211,7 +213,7 @@ test("ownership and follow distance", () => {
   assert.equal(sameOwner({ id: "p1", name: "other" }, player), true);
   assert.equal(sameOwner({ id: "nope", name: "Ada" }, player), true);
   assert.equal(sameOwner({ id: "nope", name: "Bea" }, player), false);
-  assert.equal(shouldTeleport({ x: 0, y: 0, z: 0 }, { x: 10, y: 0, z: 0 }), false);
-  assert.equal(shouldTeleport({ x: 0, y: 0, z: 0 }, { x: 30, y: 0, z: 0 }), true);
+  assert.equal(shouldTeleport({ x: 0, y: 0, z: 0 }, { x: 3, y: 0, z: 0 }), false);
+  assert.equal(shouldTeleport({ x: 0, y: 0, z: 0 }, { x: 6, y: 0, z: 0 }), true);
   assert.equal(hungriest([{ hunger: 12 }, { hunger: 3 }, { hunger: 9 }]).hunger, 3);
 });
