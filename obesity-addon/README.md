@@ -54,7 +54,7 @@ Replace `YOUR_COHERE_API_KEY` with your key. Do not leave the placeholder in the
 
 Do not type `/connect`. That command is Minecraft's websocket connection. In a single-player world it closes immediately, which is the "connection closed" message. `/obesity:connect` stays in the world and saves the key. You can also type `connect to` and the key in chat with no slash.
 
-Stand near Obesity and talk. Obesity asks Cohere when the world can open it, and still answers in the world when it cannot.
+Stand near Obesity and talk. The reply appears in chat and on the line above the hotbar. Obesity asks Cohere when the world can open it, and still answers in the world when it cannot.
 
 ```
 Y . Y

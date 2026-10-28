@@ -284,6 +284,34 @@ export function parseConnectCommand(raw) {
   return { kind: "cohere", key: rest };
 }
 
+export function connectPhrase(parts) {
+  const words = [];
+  const push = (value) => {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) words.push(trimmed);
+      return;
+    }
+    if (Array.isArray(value)) value.forEach(push);
+  };
+  push(parts);
+  const phrase = words.join(" ");
+  if (!phrase) return "connect to";
+  const lower = phrase.toLowerCase();
+  if (lower === "connect" || lower.startsWith("connect ")) return phrase;
+  if (lower === "to" || lower.startsWith("to ")) return `connect ${phrase}`;
+  return `connect to ${phrase}`;
+}
+
+export function actionBarText(text) {
+  const clean = String(text || "")
+    .replace(/§./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (clean.length <= 90) return clean;
+  return `${clean.slice(0, 87)}...`;
+}
+
 export function connectFeedback(result) {
   if (!result || result.kind === "ignore") return [];
   if (result.reason === "cohere-placeholder") {
@@ -303,10 +331,10 @@ export function connectFeedback(result) {
     ];
   }
   if (result.kind === "cohere") {
-    return ["Saved for this single-player world. Obesity will use Cohere. Your key was not repeated here."];
+    return ["Saved. Stand next to Obesity and talk. Your key was not repeated here."];
   }
   if (result.kind === "local") {
-    return ["Saved for this single-player world. Obesity will use your local AI server. The address was not repeated here."];
+    return ["Saved. Stand next to Obesity and talk. The address was not repeated here."];
   }
   return [];
 }

@@ -7,7 +7,10 @@ import {
   applyFeed,
   boxSpots,
   clampHunger,
+  actionBarText,
+  clipReply,
   connectFeedback,
+  connectPhrase,
   crossedWarning,
   localReply,
   distanceSquared,
@@ -197,19 +200,71 @@ function clearHud(player) {
   }
 }
 
+function showNotice(player, lines) {
+  const list = (lines || []).filter((line) => typeof line === "string" && line.trim());
+  if (!player || list.length === 0) return;
+  for (const line of list) {
+    try {
+      player.sendMessage(`§e${line}`);
+    } catch (error) {
+      // Chat can be closed. The action bar still shows the first line.
+    }
+  }
+  try {
+    player.onScreenDisplay.setActionBar(`§e${actionBarText(list[0])}`);
+  } catch (error) {
+    warn(`could not show a notice: ${error}`);
+  }
+}
+
+function showSpeech(player, reply) {
+  const clean = clipReply(reply) || "Obesity is here.";
+  try {
+    player.sendMessage(`§eObesity: §f${clean}`);
+  } catch (error) {
+    // The action bar carries the same reply.
+  }
+  try {
+    player.onScreenDisplay.setActionBar(`§eObesity: ${actionBarText(clean)}`);
+  } catch (error) {
+    warn(`could not show Obesity's reply: ${error}`);
+  }
+}
+
+function playerToken(player) {
+  try {
+    return player ? { id: player.id, name: player.name } : undefined;
+  } catch (error) {
+    return undefined;
+  }
+}
+
+function findPlayer(token, fallback) {
+  if (!token) return fallback;
+  try {
+    const players = world.getPlayers();
+    return (
+      players.find((entry) => entry.id === token.id) ||
+      players.find((entry) => token.name && entry.name === token.name) ||
+      fallback
+    );
+  } catch (error) {
+    return fallback;
+  }
+}
+
 function showAiGuide(player) {
   try {
-    if (showedGuide.has(player.id)) {
-      player.sendMessage("§e/obesity:connect to YOUR_COHERE_API_KEY");
-      player.sendMessage("§e/obesity:connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE");
-      player.sendMessage("§7Replace the placeholder. Do not type /connect. That one is Minecraft's and it closes.");
-      return;
-    }
+    const lines = showedGuide.has(player.id)
+      ? [
+          "/obesity:connect to YOUR_COHERE_API_KEY",
+          "/obesity:connect to local ai server LOCAL_AI_SERVER_PLACEHOLDER_HERE",
+          "Replace the placeholder. Do not type /connect. That one is Minecraft's and it closes.",
+        ]
+      : aiGuideLines();
     showedGuide.add(player.id);
-    for (const line of aiGuideLines()) {
-      const color = line.startsWith("/obesity:connect") ? "§e" : "§f";
-      player.sendMessage(color + line);
-    }
+    showNotice(player, lines);
+    player.onScreenDisplay.setActionBar("§e/obesity:connect to YOUR_COHERE_API_KEY");
   } catch (error) {
     warn(`could not show the AI steps: ${error}`);
   }
@@ -272,11 +327,11 @@ function saveConnection(player, result) {
 function applyConnect(player, raw) {
   const result = parseConnectCommand(raw);
   if (result.kind === "ignore") return;
-  for (const line of connectFeedback(result)) player.sendMessage(`§e${line}`);
-  if (result.kind !== "cohere" && result.kind !== "local") return;
-  if (!saveConnection(player, result)) {
-    player.sendMessage("§cObesity could not save that connection.");
+  if ((result.kind === "cohere" || result.kind === "local") && !saveConnection(player, result)) {
+    showNotice(player, ["Obesity could not save that connection."]);
+    return;
   }
+  showNotice(player, connectFeedback(result));
 }
 
 function nearbyPet(player) {
@@ -332,18 +387,16 @@ function rememberTurn(player, userText, reply) {
 
 function hearChat(player, text) {
   const pet = nearbyPet(player);
-  if (!pet) return;
+  if (!pet) {
+    showNotice(player, ["Stand next to Obesity, then talk again."]);
+    return;
+  }
   const kind = player.getDynamicProperty("obesity:ai_kind");
   const secret = player.getDynamicProperty("obesity:ai_secret");
   if ((kind !== "cohere" && kind !== "local") || typeof secret !== "string" || !secret) {
     showAiGuide(player);
     return;
   }
-  if (talkBusy.has(player.id)) {
-    player.sendMessage("§eObesity is still thinking.");
-    return;
-  }
-  talkBusy.add(player.id);
   let hunger;
   try {
     hunger = pet.getProperty("obesity:hunger");
@@ -351,35 +404,38 @@ function hearChat(player, text) {
     hunger = undefined;
   }
   const prior = talkHistory.get(player.id) || [];
+  const reply = localReply(text, hunger);
+  rememberTurn(player, text, reply);
+  showSpeech(player, reply);
+  if (talkBusy.has(player.id)) return;
+  talkBusy.add(player.id);
   const turns = prior.concat([{ role: "user", content: text }]);
+  let finished = false;
+  const timeout = system.runTimeout(() => {
+    finished = true;
+    talkBusy.delete(player.id);
+  }, 40);
   askObesity(kind, secret, turns, hunger)
     .then((result) => {
-      if (result && result.ok && result.text) {
+      if (finished) return;
+      finished = true;
+      try {
+        system.clearRun(timeout);
+      } catch (error) {
+        // The timer already finished.
+      }
+      if (result && result.ok && result.text && result.text !== reply) {
         rememberTurn(player, text, result.text);
-        player.sendMessage(`§eObesity: §f${result.text}`);
+        showSpeech(player, result.text);
         return;
       }
-      if (result && (result.reason === "denied" || result.status === 401 || result.status === 403)) {
-        player.sendMessage("§cCohere refused that key. Create a new one at cohere.com, then run /obesity:connect to your key.");
-        return;
-      }
-      const reply = localReply(text, hunger);
-      rememberTurn(player, text, reply);
-      if (!toldOffline.has(player.id)) {
+      if (result && (result.reason === "denied" || result.status === 401 || result.status === 403) && !toldOffline.has(player.id)) {
         toldOffline.add(player.id);
-        player.sendMessage("§7Your key is saved in this single-player world. Obesity is answering here.");
+        showNotice(player, ["Cohere refused that key. Create a new one at cohere.com, then run /obesity:connect to your key."]);
       }
-      player.sendMessage(`§eObesity: §f${reply}`);
     })
     .catch((error) => {
       warn(`talk failed: ${error}`);
-      try {
-        const reply = localReply(text, hunger);
-        rememberTurn(player, text, reply);
-        player.sendMessage(`§eObesity: §f${reply}`);
-      } catch (sendError) {
-        // Player left mid-reply.
-      }
     })
     .finally(() => {
       talkBusy.delete(player.id);
@@ -454,8 +510,7 @@ function openBoxNow(player, dim, loc) {
   playAt(dim, "random.pop", pos, 1.25, 0.8);
   burst(dim, "minecraft:heart_particle", pos, 8, 0.8, 0.3);
   try {
-    player.sendMessage("§eObesity tumbles out, already eyeing your food.");
-    player.sendMessage("§fHold food and tap Obesity. To let them talk, use one of the /connect commands from earlier.");
+    showNotice(player, ["Obesity tumbles out. Hold food and tap them.", "To let them talk: /obesity:connect to YOUR_COHERE_API_KEY"]);
     player.onScreenDisplay.setActionBar("§eHold food and tap Obesity");
     const display = hungerDisplay(START_HUNGER, 1);
     showHud(player, display.title, display.subtitle);
@@ -674,20 +729,24 @@ function registerConnect(init) {
       mandatoryParameters: [{ name: "obesity:connect_to", type: CustomCommandParamType.Enum }],
       optionalParameters: words,
     },
-    (origin, args) => {
-      const entity = origin && (origin.sourceEntity || origin.initiator);
-      const parts = Array.isArray(args) ? args.filter((arg) => typeof arg === "string") : [];
-      const phrase = parts.join(" ").trim();
-      const raw = phrase.toLowerCase().startsWith("to ") || phrase.toLowerCase() === "to" ? `connect ${phrase}` : `connect to ${phrase}`;
-      system.run(() => {
-        if (!entity || entity.typeId !== "minecraft:player") return;
+    (origin, ...params) => {
+      const raw = connectPhrase(params);
+      const result = parseConnectCommand(raw);
+      const lines = connectFeedback(result);
+      const token = playerToken(origin && (origin.sourceEntity || origin.initiator));
+      system.runTimeout(() => {
+        const player = findPlayer(token);
+        if (!player) return;
         try {
-          applyConnect(entity, raw);
+          applyConnect(player, raw);
         } catch (error) {
           warn(`connect failed: ${error}`);
         }
-      });
-      return { status: CustomCommandStatus.Success };
+      }, 5);
+      return {
+        status: CustomCommandStatus.Success,
+        message: lines.join(" ") || "Obesity is listening.",
+      };
     }
   );
 }
@@ -796,24 +855,30 @@ world.beforeEvents.chatSend.subscribe((event) => {
   const parsed = parseConnectCommand(message);
   if (parsed.kind !== "ignore") {
     event.cancel = true;
-    system.run(() => {
+    const token = playerToken(player);
+    system.runTimeout(() => {
+      const current = findPlayer(token, player);
+      if (!current) return;
       try {
-        applyConnect(player, message);
+        applyConnect(current, message);
       } catch (error) {
         warn(`connect failed: ${error}`);
       }
-    });
+    }, 5);
     return;
   }
   const text = message.trim();
   if (!text || text.startsWith("/")) return;
-  system.run(() => {
+  const token = playerToken(player);
+  system.runTimeout(() => {
+    const current = findPlayer(token, player);
+    if (!current) return;
     try {
-      hearChat(player, text);
+      hearChat(current, text);
     } catch (error) {
       warn(`talk failed: ${error}`);
     }
-  });
+  }, 5);
 });
 
 world.afterEvents.playerSpawn.subscribe((event) => {

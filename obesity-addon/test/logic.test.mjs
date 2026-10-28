@@ -19,7 +19,9 @@ import {
   cohereRequest,
   cohereV1Request,
   failureKind,
+  actionBarText,
   connectFeedback,
+  connectPhrase,
   hungerDisplay,
   hungriest,
   isFreshPlacement,
@@ -136,6 +138,12 @@ test("connect rejects the placeholders and keeps a real key private in the reply
   assert.equal(connectFeedback(cohere).join(" ").includes("test-key"), false);
   const namespaced = parseConnectCommand("/obesity:connect to test-key");
   assert.deepEqual(namespaced, { kind: "cohere", key: "test-key" });
+  assert.equal(connectPhrase(["to", "test-key"]), "connect to test-key");
+  assert.equal(
+    parseConnectCommand(connectPhrase(["to", "local", "ai", "server", "http://ollama.local:11434"])).kind,
+    "local"
+  );
+  assert.equal(actionBarText("Saved. Stand next to Obesity and talk.").startsWith("Saved"), true);
   assert.equal(parseConnectCommand("hello there").kind, "ignore");
 });
 
