@@ -1,5 +1,4 @@
 import { system, world, GameMode, ItemStack, CommandPermissionLevel, CustomCommandParamType, CustomCommandStatus } from "@minecraft/server";
-import { askObesity } from "./aiNet.js";
 import {
   DRAIN_INTERVAL_SECONDS,
   START_HUNGER,
@@ -29,8 +28,6 @@ const hudState = new Map();
 const busyBoxes = new Set();
 const fedAt = new Map();
 const placedTick = new Map();
-const talkHistory = new Map();
-const talkBusy = new Set();
 const toldOffline = new Set();
 const showedGuide = new Set();
 const TALK_DISTANCE = 8;
@@ -327,9 +324,8 @@ function talkFailure(player, result, kind) {
     }
     toldOffline.add(player.id);
     const saved = kind === "local" ? "Your local AI address is saved." : "Your Cohere key is saved.";
-    const target = kind === "local" ? "your AI server" : "Cohere";
-    player.sendMessage(`§e${saved} Minecraft blocked the call before ${target} could answer.`);
-    player.sendMessage("§7A phone or single-player world cannot open it. A Bedrock dedicated server with network scripts allowed can.");
+    player.sendMessage(`§e${saved} Obesity will not open it from this world.`);
+    player.sendMessage("§7A phone or single-player game closes its session when an add-on tries. The key stays saved.");
     return;
   }
   if (result.reason === "denied" || result.status === 401 || result.status === 403) {
@@ -348,7 +344,7 @@ function talkFailure(player, result, kind) {
   player.sendMessage("§cObesity could not get an answer. Try again in a moment.");
 }
 
-async function hearChat(player, text) {
+function hearChat(player) {
   const pet = nearbyPet(player);
   if (!pet) return;
   const kind = player.getDynamicProperty("obesity:ai_kind");
@@ -357,42 +353,7 @@ async function hearChat(player, text) {
     showAiGuide(player);
     return;
   }
-  if (talkBusy.has(player.id)) {
-    player.sendMessage("§eObesity is still thinking.");
-    return;
-  }
-  talkBusy.add(player.id);
-  try {
-    let hunger;
-    try {
-      hunger = pet.getProperty("obesity:hunger");
-    } catch (error) {
-      hunger = undefined;
-    }
-    const prior = talkHistory.get(player.id) || [];
-    const turns = prior.concat([{ role: "user", content: text }]);
-    const result = await askObesity(kind, secret, turns, hunger);
-    if (!result.ok) {
-      talkFailure(player, result, kind);
-      return;
-    }
-    const history = prior.concat([
-      { role: "user", content: text },
-      { role: "assistant", content: result.text },
-    ]);
-    while (history.length > 8) history.shift();
-    talkHistory.set(player.id, history);
-    player.sendMessage(`§eObesity: §f${result.text}`);
-  } catch (error) {
-    warn(`talk failed: ${error}`);
-    try {
-      player.sendMessage("§cObesity could not get an answer. Try again in a moment.");
-    } catch (sendError) {
-      // Player left mid-reply.
-    }
-  } finally {
-    talkBusy.delete(player.id);
-  }
+  talkFailure(player, { reason: "blocked" }, kind);
 }
 
 function openBoxNow(player, dim, loc) {
@@ -817,7 +778,11 @@ world.beforeEvents.chatSend.subscribe((event) => {
   const text = message.trim();
   if (!text || text.startsWith("/")) return;
   system.run(() => {
-    hearChat(player, text).catch((error) => warn(`talk failed: ${error}`));
+    try {
+      hearChat(player);
+    } catch (error) {
+      warn(`talk failed: ${error}`);
+    }
   });
 });
 

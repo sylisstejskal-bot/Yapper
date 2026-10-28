@@ -50,11 +50,9 @@ Replace `LOCAL_AI_SERVER_PLACEHOLDER_HERE` with that computer's address, includi
 /connect to YOUR_COHERE_API_KEY
 ```
 
-Replace `YOUR_COHERE_API_KEY` with your key. Do not leave the placeholder in the command. The key is not printed back to chat. Cohere itself answers a normal request. A phone or single-player world blocks the call before that answer arrives. A Bedrock dedicated server with network scripts allowed can use the saved key.
+Replace `YOUR_COHERE_API_KEY` with your key. Do not leave the placeholder in the command. The key is not printed back to chat. Obesity stores it and does not open a network call. Opening Cohere from a phone or single-player world makes Minecraft close the session.
 
-If Minecraft says the slash command is unknown, type the same words with no slash. Stand near Obesity and talk in normal chat.
-
-A phone, console, or single-player world cannot open the connection itself. Minecraft only allows that call from a Bedrock dedicated server. Run the server on the computer that has Ollama, allow `@minecraft/server-net` in that server's permissions, and use the same `/connect` command there.
+If Minecraft says the slash command is unknown, type the same words with no slash. Stand near Obesity and talk in normal chat. Obesity will confirm the key is saved.
 
 ```
 Y . Y

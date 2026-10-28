@@ -235,7 +235,7 @@ export function aiGuideLines() {
     "/connect to YOUR_COHERE_API_KEY",
     "Replace YOUR_COHERE_API_KEY with your own key. The pack does not include a key, and the placeholder will not connect.",
     "Stand near Obesity and talk in chat. If a slash is an unknown command, type the same words without the slash. Your key is not shown to other players.",
-    "A phone or single-player world cannot open Cohere or Ollama. Minecraft blocks that call. A Bedrock dedicated server with network scripts allowed can use what you saved.",
+    "Obesity saves the key or address and does not open it from a phone or single-player world. Trying to open it makes Minecraft close the session.",
   ];
 }
 
