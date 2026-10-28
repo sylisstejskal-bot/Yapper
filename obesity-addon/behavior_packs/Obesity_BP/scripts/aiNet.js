@@ -30,24 +30,29 @@ function applyBody(request, body) {
 }
 
 function applyHeaders(request, net, headers) {
-  if (typeof request.addHeader === "function") {
-    for (const [name, value] of headers) request.addHeader(name, value);
-    return;
+  const built = headers.map(([name, value]) => new net.HttpHeader(name, value));
+  request.headers = built;
+  if (typeof request.setHeaders === "function") {
+    try {
+      request.setHeaders(built);
+    } catch (error) {
+      // The headers array is already set.
+    }
   }
-  request.headers = headers.map(([name, value]) => new net.HttpHeader(name, value));
-}
-
-function applyTimeout(request) {
-  if (typeof request.setTimeout === "function") request.setTimeout(30);
-  else request.timeout = 30;
+  if (typeof request.addHeader === "function") {
+    try {
+      for (const [name, value] of headers) request.addHeader(name, value);
+    } catch (error) {
+      // Property headers remain in place.
+    }
+  }
 }
 
 async function send(net, url, method, headers, body) {
   const request = new net.HttpRequest(url);
-  applyMethod(request, method);
   applyBody(request, body);
+  applyMethod(request, method);
   applyHeaders(request, net, headers);
-  applyTimeout(request);
   const response = await net.http.request(request);
   return { status: Number(response.status), body: response.body };
 }
@@ -76,11 +81,12 @@ export async function askObesity(kind, secret, turns, hunger) {
       for (const built of [cohereV1Request(secret, turns, hunger), cohereRequest(secret, turns, hunger)]) {
         try {
           const result = await postBuilt(net, built);
-          if (result.ok || result.reason === "denied") return result;
+          if (result.ok || result.reason === "denied" || result.reason === "blocked") return result;
           last = result;
         } catch (error) {
           const message = error && error.message ? error.message : error;
           last = { ok: false, reason: failureKind(0, message) };
+          if (last.reason === "blocked") return last;
         }
       }
       return last;

@@ -164,7 +164,8 @@ test("AI requests use the supplied connection and read the replies", () => {
     { role: "USER", message: "hi" },
     { role: "CHATBOT", message: "hello" },
   ]);
-  assert.equal(failureKind(0, "Connection closed"), "closed");
+  assert.equal(failureKind(0, "Connection closed"), "blocked");
+  assert.equal(failureKind(502, "connection closed"), "closed");
   assert.equal(failureKind(401, ""), "denied");
   assert.equal(readCohereReply(JSON.stringify({ message: { content: [{ type: "text", text: "feed me" }] } })), "feed me");
 

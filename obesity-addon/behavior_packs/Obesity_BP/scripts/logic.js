@@ -235,7 +235,7 @@ export function aiGuideLines() {
     "/connect to YOUR_COHERE_API_KEY",
     "Replace YOUR_COHERE_API_KEY with your own key. The pack does not include a key, and the placeholder will not connect.",
     "Stand near Obesity and talk in chat. If a slash is an unknown command, type the same words without the slash. Your key is not shown to other players.",
-    "A phone or single-player world cannot open the connection. A Bedrock dedicated server on the Ollama computer can, after network scripts are allowed there.",
+    "A phone or single-player world cannot open Cohere or Ollama. Minecraft blocks that call. A Bedrock dedicated server with network scripts allowed can use what you saved.",
   ];
 }
 
@@ -371,7 +371,9 @@ export function cohereV1Request(key, turns, hunger) {
 export function failureKind(status, errorText) {
   if (status === 401 || status === 403) return "denied";
   const text = String(errorText || "");
-  if (status === 0 || /connection closed|econnreset|socket hang up|timed out|timeout/i.test(text)) return "closed";
+  const dropped = /connection closed|econnreset|socket hang up/i.test(text);
+  if (!status && dropped) return "blocked";
+  if (status === 0 || dropped || /timed out|timeout/i.test(text)) return "closed";
   if (status) return "http";
   return "failed";
 }

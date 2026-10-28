@@ -319,15 +319,17 @@ function nearbyPet(player) {
   return best;
 }
 
-function talkFailure(player, result) {
-  if (result.reason === "no-net") {
+function talkFailure(player, result, kind) {
+  if (result.reason === "no-net" || result.reason === "blocked") {
     if (toldOffline.has(player.id)) {
-      player.sendMessage("§eObesity still cannot reach the AI from this world.");
+      player.sendMessage("§eThis world still cannot open the AI.");
       return;
     }
     toldOffline.add(player.id);
-    player.sendMessage("§eObesity saved the connection, but this Minecraft world cannot call Ollama or Cohere.");
-    player.sendMessage("§7Host the world on a Bedrock dedicated server and allow network scripts, then talk again.");
+    const saved = kind === "local" ? "Your local AI address is saved." : "Your Cohere key is saved.";
+    const target = kind === "local" ? "your AI server" : "Cohere";
+    player.sendMessage(`§e${saved} Minecraft blocked the call before ${target} could answer.`);
+    player.sendMessage("§7A phone or single-player world cannot open it. A Bedrock dedicated server with network scripts allowed can.");
     return;
   }
   if (result.reason === "denied" || result.status === 401 || result.status === 403) {
@@ -335,8 +337,8 @@ function talkFailure(player, result) {
     return;
   }
   if (result.reason === "closed") {
-    player.sendMessage("§cCohere closed the connection before Obesity got an answer.");
-    player.sendMessage("§7Obesity tried both chat addresses. Check that the key is active, run /connect to your key again, then talk.");
+    player.sendMessage("§cObesity could not get an answer from that address. It tried the other Cohere chat address too.");
+    player.sendMessage("§7Check that the key is active at cohere.com, run /connect to your key again, then talk.");
     return;
   }
   if (result.reason === "http") {
@@ -371,7 +373,7 @@ async function hearChat(player, text) {
     const turns = prior.concat([{ role: "user", content: text }]);
     const result = await askObesity(kind, secret, turns, hunger);
     if (!result.ok) {
-      talkFailure(player, result);
+      talkFailure(player, result, kind);
       return;
     }
     const history = prior.concat([
