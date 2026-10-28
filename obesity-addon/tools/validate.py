@@ -10,7 +10,7 @@ BP = ROOT / "behavior_packs" / "Obesity_BP"
 RP = ROOT / "resource_packs" / "Obesity_RP"
 MCADDON = ROOT / "Obesity.mcaddon"
 
-BONES = {"root", "body", "belly", "head", "armL", "armR", "legL", "legR"}
+BONES = {"root", "body", "belly", "head", "armL", "armR"}
 SHORT_ANIMS = {"pop", "idle", "look", "walk", "hungry", "eat", "controller"}
 
 

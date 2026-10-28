@@ -45,21 +45,15 @@
       "animation_length": 1.0,
       "loop": true,
       "bones": {
-        "legL": {
-          "rotation": ["math.sin(query.anim_time * 560) * 32", 0, 0]
-        },
-        "legR": {
-          "rotation": ["math.sin(query.anim_time * 560) * -32", 0, 0]
-        },
         "armL": {
-          "rotation": ["math.sin(query.anim_time * 560) * -28", 0, -12]
+          "rotation": ["math.sin(query.anim_time * 560) * 10", 0, 6]
         },
         "armR": {
-          "rotation": ["math.sin(query.anim_time * 560) * 28", 0, 12]
+          "rotation": ["math.sin(query.anim_time * 560) * -10", 0, -6]
         },
         "body": {
-          "rotation": [8, 0, "math.sin(query.anim_time * 560) * 7"],
-          "position": [0, "math.abs(math.sin(query.anim_time * 560)) * 1.1", 0]
+          "rotation": [4, 0, "math.sin(query.anim_time * 560) * 8"],
+          "position": ["math.sin(query.anim_time * 560) * 0.6", "math.abs(math.sin(query.anim_time * 560)) * 1.2", 0]
         }
       }
     },

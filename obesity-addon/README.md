@@ -1,6 +1,6 @@
 # Obesity
 
-A Minecraft Bedrock add-on for Android, Windows, and consoles. You start with a sealed box. Open it and a chubby yellow character named Obesity pops out. A hunger bar at the top of the screen is Obesity's hunger. Feed them food or they starve.
+A Minecraft Bedrock add-on for Android, Windows, and consoles. You start with a sealed box. Open it and Obesity pops out: a round yellow character with a big smile, tiny arms, and no legs. A hunger bar at the top of the screen is Obesity's hunger. Feed them food or they starve.
 
 Requires **Minecraft 1.21.90 or newer**. It uses the stable script API, so you do not turn on the Beta APIs experiment. Adding a behavior pack turns off achievements for that world.
 

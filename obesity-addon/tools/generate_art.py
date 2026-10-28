@@ -25,7 +25,7 @@ PALETTE = {
 FILL = {
     "yellow": (255, 214, 61, 255),
     "belly": (245, 186, 43, 255),
-    "shadow": (214, 150, 32, 255),
+    "shadow": (228, 168, 42, 255),
     "black": (22, 18, 16, 255),
     "white": (255, 250, 236, 255),
     "pink": (255, 146, 176, 255),
@@ -50,10 +50,12 @@ def paint_cell(img, name):
     u, v = PALETTE[name]
     fill = FILL[name]
     border = BORDER[name]
+    # Body colors stay solid so stacked cubes read as one round shape.
+    outlined = name in {"black", "white", "pink", "brown"}
     for dy in range(8):
         for dx in range(8):
-            edge = dx in (0, 7) or dy in (0, 7)
-            img.putpixel((u + dx, v + dy), border if edge and name != "white" else fill)
+            edge = outlined and (dx in (0, 7) or dy in (0, 7))
+            img.putpixel((u + dx, v + dy), border if edge else fill)
 
 
 def entity_texture():
@@ -125,75 +127,61 @@ def face_uv(u, v, w, h):
 
 
 def character_bones():
-    yellow = {"down": "shadow", "*": "yellow"}
+    # Round totem: widest at the belly, head melted into the shoulders, no legs.
+    blob = {"north": "yellow", "south": "shadow", "east": "belly", "west": "belly", "up": "gold", "down": "shadow"}
     return [
         {"name": "root", "pivot": [0, 0, 0]},
         {
             "name": "body",
             "parent": "root",
-            "pivot": [0, 5, 0],
+            "pivot": [0, 0, 0],
             "cubes": [
-                cube([-7, 5, -6], [14, 10, 12], {"north": "belly", "south": "shadow", "down": "shadow", "*": "yellow"}),
-                cube([-6.2, 4.2, -7.4], [12.4, 3.4, 8], "belly"),
+                cube([-5.4, 0, -4.6], [10.8, 2.2, 9.2], blob),
+                cube([-6.8, 1.4, -5.6], [13.6, 2.4, 11.2], blob),
+                cube([-8, 3, -6.6], [16, 6.6, 13.2], blob),
+                cube([-7, 8.4, -5.8], [14, 2.8, 11.6], blob),
+                cube([-5.8, 10.4, -5], [11.6, 2.6, 10], blob),
             ],
         },
         {
             "name": "belly",
             "parent": "body",
-            "pivot": [0, 7, -6],
+            "pivot": [0, 6, -5],
             "cubes": [
-                cube([-6.6, 6.2, -10.2], [13.2, 7.6, 4.6], {"north": "gold", "down": "shadow", "*": "belly"}),
-                cube([-1.3, 8.4, -11.1], [2.6, 2.5, 1.1], "brown"),
+                cube([-6.2, 4.2, -7.4], [12.4, 4.6, 1.2], "yellow"),
+                cube([-0.55, 5.7, -7.9], [1.1, 1.2, 0.7], "shadow"),
             ],
         },
         {
             "name": "head",
             "parent": "body",
-            "pivot": [0, 14, 0],
+            "pivot": [0, 12.2, 0],
             "cubes": [
-                cube([-5.6, 14, -5.6], [11.2, 9.2, 10.2], yellow),
-                cube([-4.2, 12.8, -8.1], [8.4, 3.3, 3.2], "yellow"),
-                cube([-4.2, 18.1, -8.4], [2.5, 2.5, 1.1], "black"),
-                cube([1.7, 18.1, -8.4], [2.5, 2.5, 1.1], "black"),
-                cube([-3.6, 19.3, -8.8], [1, 1, 0.7], "white"),
-                cube([2.3, 19.3, -8.8], [1, 1, 0.7], "white"),
-                cube([-2.7, 15.5, -8.8], [1.7, 1.15, 0.9], "brown"),
-                cube([-0.85, 15.05, -8.9], [1.7, 1.15, 0.9], "brown"),
-                cube([1.0, 15.5, -8.8], [1.7, 1.15, 0.9], "brown"),
-                cube([-7.3, 16.5, -7.4], [2.3, 2.5, 2.3], "pink"),
-                cube([5.0, 16.5, -7.4], [2.3, 2.5, 2.3], "pink"),
-                cube([-6.8, 21.6, -2.2], [2.1, 2.8, 2.5], "yellow"),
-                cube([4.7, 21.6, -2.2], [2.1, 2.8, 2.5], "yellow"),
+                cube([-5.2, 12, -4.8], [10.4, 5.4, 9.2], blob),
+                cube([-3.6, 16.8, -3.6], [7.2, 2.4, 7], "yellow"),
+                cube([-3.15, 15.3, -5.5], [2.1, 1.6, 0.8], "black"),
+                cube([1.05, 15.3, -5.5], [2.1, 1.6, 0.8], "black"),
+                cube([-3.3, 13.55, -5.6], [1.35, 1.15, 0.8], "black"),
+                cube([-2.15, 13.05, -5.7], [4.3, 1.25, 0.8], "black"),
+                cube([1.95, 13.55, -5.6], [1.35, 1.15, 0.8], "black"),
             ],
         },
         {
             "name": "armL",
             "parent": "body",
-            "pivot": [-7, 14, 0],
-            "cubes": [cube([-11.4, 7.1, -2.5], [4.6, 6.8, 4.8], yellow)],
+            "pivot": [-6, 11, -1],
+            "cubes": [
+                cube([-9.1, 6.2, -4.2], [2.1, 4.4, 2.6], "yellow"),
+                cube([-8.4, 5.4, -6.8], [2.2, 2, 2.6], "yellow"),
+            ],
         },
         {
             "name": "armR",
             "parent": "body",
-            "pivot": [7, 14, 0],
-            "cubes": [cube([6.8, 7.1, -2.5], [4.6, 6.8, 4.8], yellow)],
-        },
-        {
-            "name": "legL",
-            "parent": "root",
-            "pivot": [-3.5, 5, 0],
+            "pivot": [6, 11, -1],
             "cubes": [
-                cube([-6.3, 2.0, -2.5], [4.8, 3.2, 4.8], "yellow"),
-                cube([-6.7, 0, -2.9], [5.6, 2.3, 5.6], "brown"),
-            ],
-        },
-        {
-            "name": "legR",
-            "parent": "root",
-            "pivot": [3.5, 5, 0],
-            "cubes": [
-                cube([1.5, 2.0, -2.5], [4.8, 3.2, 4.8], "yellow"),
-                cube([1.1, 0, -2.9], [5.6, 2.3, 5.6], "brown"),
+                cube([7, 6.2, -4.2], [2.1, 4.4, 2.6], "yellow"),
+                cube([6.2, 5.4, -6.8], [2.2, 2, 2.6], "yellow"),
             ],
         },
     ]
@@ -464,7 +452,7 @@ def storyboard(character, box):
 
 
 def assert_character(image):
-    yellow = black = pink = brown = 0
+    yellow = black = 0
     for r, g, b, a in image.getdata():
         if a < 16:
             continue
@@ -472,14 +460,8 @@ def assert_character(image):
             yellow += 1
         if r < 45 and g < 45 and b < 45:
             black += 1
-        if r > 190 and 90 < g < 190 and b > 120:
-            pink += 1
-        if 50 < r < 150 and g < 100 and b < 70:
-            brown += 1
-    if yellow < 400 or black < 20 or pink < 12 or brown < 30:
-        raise SystemExit(
-            f"character preview is missing features: yellow={yellow} black={black} pink={pink} brown={brown}"
-        )
+    if yellow < 400 or black < 40:
+        raise SystemExit(f"character preview is missing features: yellow={yellow} black={black}")
 
 
 def write_json(path, data):
