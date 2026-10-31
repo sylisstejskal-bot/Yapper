@@ -1,0 +1,9 @@
+{
+  "resource_pack_name": "the_creator",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "creator_offering": {
+      "textures": "textures/items/creator_offering"
+    }
+  }
+}

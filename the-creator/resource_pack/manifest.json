@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "The Creator Resources",
+    "description": "The tall figure, the offering, and the spawn egg for The Creator.",
+    "uuid": "433b6905-da9f-4aa2-81ff-745086727df6",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 0]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "ebd63c70-7670-4370-ae96-67b46731d6f8",
+      "version": [1, 0, 0]
+    }
+  ]
+}

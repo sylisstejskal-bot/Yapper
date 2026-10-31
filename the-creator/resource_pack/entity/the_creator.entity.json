@@ -1,0 +1,28 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "creator:the_creator",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/the_creator"
+      },
+      "geometry": {
+        "default": "geometry.the_creator"
+      },
+      "animations": {
+        "idle": "animation.the_creator.idle"
+      },
+      "scripts": {
+        "animate": ["idle"]
+      },
+      "render_controllers": ["controller.render.the_creator"],
+      "spawn_egg": {
+        "base_color": "#121214",
+        "overlay_color": "#6e1c24"
+      }
+    }
+  }
+}
